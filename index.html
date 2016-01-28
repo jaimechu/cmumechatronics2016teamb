@@ -71,7 +71,31 @@ SYS-R13. Device shall compress plastic and aluminum objects, but should not comp
 
 <h3>
 <a id="design" class="anchor" href="#system-design" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>System Design </h3> 
-<p> Coming soon
+<p> <b>Power</b> |
+  Power is one of the most important aspects of our device. Since the assumption is that our device will be placed in an indoor location, we wanted to utilize outlets, which are commonly found indoors. In order to convert the power from the outlet, we will use an AC/DC converter and a separate 12V power supply in order to ensure that the motors will not draw too much current away from the sensors. 
+  <br><br>
+  <b>User Interface</b> |
+  The clearest way to identify clear information was simply to use an LCD screen in order to list how many of each object was sorted. This was a pure design decision in order to make the user interface easier and more apparent. Buttons will also be used in order to have a clear start and reset to the characterization and/or compacting process and an emergency stop button in case there is an emergency. These decisions were based off of other large machinery with similar potential hazards to users.<br> <br>
+  <b>Input</b> | 
+  The infrastructure will be made of 80/20 aluminum to allow for adjustments throughout the semester. There will be two 15 gallon bins at the bottom to store the two categories of sorted trash. Our concept for the input of trash uses a revolving Y-shape that will be actively controlled. The Y shape would rotate to store items at the top or deposit trash into the sensing area. This design would require fewer servos and may save volume, but require more complex parts as well as making sure that parts do not fall through any cracks too early. <br> <br>
+  <b>Sorting</b> | Based off the flow chart below, the different sensors required to accurately sort are listed. Thus, we have decided to include four different sensors: mass sensor, inductance sensor, force gauge/pressure sensor (to be used with the hot punch), and an optical sensor. Each sensor serves a purpose to help distinguish a certain material. The mass sensor would first be used to help eliminate the possibility of plastic bags, pieces of paper, or other common wrapper items. From the three categories of recyclable materials, metal was the easiest to first distinguish with an inductance sensor. Next, the hot punch, which will be a device similar to a soldering iron on a actuator, which will use force to gauge the stress and strain of a material to distinguish between plastic and Styrofoam. Finally, the optical sensor is used to differentiate between glass and ceramics/tiles/concrete/paper. Since glass must be clear, the optical sensor would help detect the difference. <br>
+  <a href="functional.png"><img src="functional.png" alt="functional" name="functional" style="border: 0px solid ;"></a>
+  <br>
+  <br>
+  <b>Compacting</b> | Compacting will occur item-by-item based on decisions by the sorting algorithm. All items except glass and low-mass “other” materials (e.g. paper, plastic bags) will be compacted. The compacting assembly accepts items from the revolver input into the sorter and dumps them into either of the two bins.
+<br>
+
+The mass sensors will be placed upstream of the sorter so that low-mass “other” materials are directly sorted without compacting. The inductance sensor will also be upstream of the sorter. The optical sensor can be placed in a cut-out space on the bottom of the sorter; and the light can be mounted vertically above it. The hot punch will require its own secondary actuator and can be mounted on the same piece of aluminum channel as the linear actuator (red), or on the actuator itself.
+Once the mass and inductance tests are completed, and it is determined that the hot punch is required, the linear actuator advances the ram towards the item without compacting it. This secondary actuator then advances the hot punch into the item to perform the force test, and finally recedes. The optical test can be performed concurrently.
+
+<br>
+  <a href="compacting.gif"><img src="compacting.gif" alt="compacting" name="compacting" style="border: 0px solid ;"></a> <br>
+If the sorting algorithm decides that the item shall be compacted, the linear actuator will advance the ram further until the item is compacted. The ram will then recede, and the sorter will dump the item in the appropriate bin. If the sorting algorithm decides that the item shall not be compacted (i.e. glass), the ram will recede without compacting, and the sorter will similarly dump the item into the appropriate bin. <br>
+  <a href="full_assembly.png"><img src="full_assembly.png" alt="full_assembly" name="full_assembly" style="border: 0px solid ;"></a> <br>
+
+
+
+  
   </p>
 
 <h3>
