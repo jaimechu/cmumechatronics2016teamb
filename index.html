@@ -22,6 +22,7 @@
         <a href="#problem_description">problem description</a> <br>
         <a href="#requirements">system requirements</a> <br>
         <a href="#design">system design</a> <br>
+        <a href="#architecture">architecture</a><br>
         <a href="#implementation">system implementation</a> <br>
         <a href="#project-management">project management</a><br>
         <a href="#about">about the team</a> <br>
@@ -88,15 +89,28 @@ SYS-R13. Device shall compress plastic and aluminum objects, but should not comp
 The mass sensors will be placed upstream of the sorter so that low-mass “other” materials are directly sorted without compacting. The inductance sensor will also be upstream of the sorter. The optical sensor can be placed in a cut-out space on the bottom of the sorter; and the light can be mounted vertically above it. The hot punch will require its own secondary actuator and can be mounted on the same piece of aluminum channel as the linear actuator (red), or on the actuator itself.
 Once the mass and inductance tests are completed, and it is determined that the hot punch is required, the linear actuator advances the ram towards the item without compacting it. This secondary actuator then advances the hot punch into the item to perform the force test, and finally recedes. The optical test can be performed concurrently.
 
-<br>
+<br><br>
   <a href="compacting.gif"><img src="compacting.gif" alt="compacting" name="compacting" style="border: 0px solid ;"></a> <br>
 If the sorting algorithm decides that the item shall be compacted, the linear actuator will advance the ram further until the item is compacted. The ram will then recede, and the sorter will dump the item in the appropriate bin. If the sorting algorithm decides that the item shall not be compacted (i.e. glass), the ram will recede without compacting, and the sorter will similarly dump the item into the appropriate bin. <br>
-  <a href="full_assembly.png"><img src="full_assembly.png" alt="full_assembly" name="full_assembly" style="border: 0px solid ;"></a> <br>
-
-
-
-  
+  <a href="full_assembly.png"><img src="full_assembly.png" alt="full_assembly" name="full_assembly" style="border: 0px solid ;"></a> <br>  
   </p>
+
+<h3>
+<a id="architecture" class="anchor" href="#architecture" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Functional Architecture </h3> 
+<p> 
+Based off the design requirements listed above, our team compiled a list of five subsections our project should incorporate, including: power, user interface, input, sorting and compacting, storing and case. In the state chart below, we show a very high-level example of how an input would go through our system, utilizing all subsystems. <br>
+<a href="complete_function.png"><img src="complete_function.png" alt="complete_function" name="complete_function" style="border: 0px solid ;"></a>
+
+</p>
+
+
+<h3>
+<span aria-hidden="true" class="octicon octicon-link"></span></a>Cyberphysical Architecture </h3> 
+<p> 
+The cyberphysical architecture section will include how the power system and the different subsystems will interact with one another. In our cyberphysical architecture, we have decided to use two microcontrollers because one microcontroller did not offer us enough pins to ensure that we would not overload it. By splitting up the microcontroller, we have the majority of the main sensors on one microcontroller, with the other with auxiliary sensors and components. Each microcontroller will communicate with one another through UART and take either an analog or a digital input for the specified function. <br>
+
+  <a href="electrical_block_diagram.png"><img src="electrical_block_diagram.png" alt="electrical_block_diagram" name="electrical_block_diagram" style="border: 0px solid ;"></a>
+</p>
 
 <h3>
 <a id="implementation" class="anchor" href="#system-implementation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>System Implementation </h3> 
