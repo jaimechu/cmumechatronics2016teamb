@@ -22,7 +22,7 @@ function varargout = mechatronics_gui(varargin)
 
 % Edit the above text to modify the response to help mechatronics_gui
 
-% Last Modified by GUIDE v2.5 01-Feb-2016 18:52:54
+% Last Modified by GUIDE v2.5 02-Feb-2016 16:49:12
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -51,20 +51,26 @@ function mechatronics_gui_OpeningFcn(hObject, eventdata, handles, varargin)
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to mechatronics_gui (see VARARGIN)
 
-handles.force_reading = [3,3,3,3,1,3];
-handles.inductance_reading = [2,0,2,8,2,2];
-handles.optical_reading = [4,4,4,8,4,4];
-handles.temperature_reading = [10,20,30,40,50,20];
-handles.ultrasonic_reading = [1,9,1,9,1,1];
+handles.force_reading = zeros(1, 1000);
+handles.hall_reading = zeros(1, 1000);
+handles.opticalR_reading = zeros(1, 1000);
+handles.opticalB_reading = zeros(1, 1000);
+handles.opticalC_reading = zeros(1, 1000);
+handles.opticalG_reading = zeros(1, 1000);
+handles.temperature_reading = zeros(1, 1000);
+handles.ultrasonic_reading = zeros(1, 1000);
 
-handles.time = [1,2,3,4,5,6];
+handles.time = [0:.1:99.9];
 
 axes(handles.force_plot)
 plot(handles.time, handles.force_reading);
-axes(handles.inductance_plot)
-plot(handles.time, handles.inductance_reading);
+axes(handles.hall_plot)
+plot(handles.time, handles.hall_reading);
 axes(handles.optical_plot)
-plot(handles.time, handles.optical_reading);
+plot(handles.time, handles.opticalR_reading, 'r');
+plot(handles.time, handles.opticalB_reading, 'b');
+plot(handles.time, handles.opticalC_reading, 'k');
+plot(handles.time, handles.opticalG_reading, 'g');
 axes(handles.temperature_plot)
 plot(handles.time, handles.temperature_reading);
 axes(handles.ultrasonic_plot)
@@ -90,12 +96,12 @@ function varargout = mechatronics_gui_OutputFcn(hObject, eventdata, handles)
 % Get default command line output from handles structure
 varargout{1} = handles.output;
 
-function loop()
-fprintf('hi')
-num_rows = 10;
-num_cols = 10;
+function loop(hObject, eventdata, handles)
+
+num_rows = 1000;
+num_cols = 8;
 Ts = 0.1;   %PIC sends data every Ts seconds
-serial_port_name = 'COM20';
+serial_port_name = '/dev/tty.usbmodem1421';
 s = serial(serial_port_name);
 % set specific parameters
 s.Baudrate = 9600;
@@ -127,43 +133,52 @@ for i = 1:1000
     
    % pause(0.1);
     timer = 0;
-    if(s.BytesAvailable > 0)
+    while(s.BytesAvailable <= 0);
+
   
         tmp = fgetl(s); %Read text data
         %[theta error pwm_val gain_num gain_den]
-        [A B C] = strread(tmp,'%d\t%d\t%d');
-        fprintf('A: %d\t B: %d\t C: %d\t\n', A, B, C);
+        [force hall opticalR opticalB opticalC opticalG temperature ultrasonic] = strread(tmp,'%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d');
+        fprintf('force: %d\t hall: %d\t opticalR: %d\t opticalB: %d\t opticalC: %d\t opticalG %d\t temperature %d\t ultrasonic%d\n', force, hall, opticalR, opticalB, opticalC, opticalG, temperature, ultrasonic);
         %disp(tmp)
-        handles.force_reading = [3,3,3,3,1,3];
-        handles.inductance_reading = [2,0,2,8,2,2];
-        handles.optical_reading = [4,4,4,8,4,4];
-        handles.temperature_reading = [10,20,30,40,50,20];
-        handles.ultrasonic_reading = [1,9,1,9,1,1];
-
-        handles.time = [1,2,3,4,5,6];
+        handles.force_reading(i) = force;
+        handles.hall_reading(i) = hall;
+        handles.opticalR_reading(i) = opticalR;
+        handles.opticalB_reading(i) = opticalB;
+        handles.opticalC_reading(i) = opticalC;
+        handles.opticalG_reading(i) = opticalG;
+        handles.temperature_reading(i) = temperature;
+        handles.ultrasonic_reading(i) = ultrasonic;
 
         axes(handles.force_plot)
         plot(handles.time, handles.force_reading);
-        axes(handles.inductance_plot)
-        plot(handles.time, handles.inductance_reading);
+        axes(handles.hall_plot)
+        plot(handles.time, handles.hall_reading);
         axes(handles.optical_plot)
-        plot(handles.time, handles.optical_reading);
+        plot(handles.time, handles.opticalR_reading, 'r');
+        plot(handles.time, handles.opticalB_reading, 'b');
+        plot(handles.time, handles.opticalC_reading, 'k');
+        plot(handles.time, handles.opticalG_reading, 'g');
         axes(handles.temperature_plot)
         plot(handles.time, handles.temperature_reading);
         axes(handles.ultrasonic_plot)
         plot(handles.time, handles.ultrasonic_reading);
-        
+
+        handles.force_string = sprintf('Force Sensor Reading [N]:\n\t%f',force);
+        set(handles.force_text, 'String', handles.force_string); 
+
         guidata(hObject, handles);
         
-        i=i+1;
-        
+        i=i+1; 
+    
     end
+  
 end
 fclose(s);
 
 % --- Executes during object creation, after setting all properties.
-function text2_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to text2 (see GCBO)
+function ultrasonic_text_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ultrasonic_text (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -290,7 +305,7 @@ function start_pushbutton_Callback(hObject, eventdata, handles)
 % hObject    handle to start_pushbutton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-loop()
+loop(hObject, eventdata, handles)
 
 
 % --- If Enable == 'on', executes on mouse press in 5 pixel border.
@@ -310,9 +325,16 @@ function plot_popup_ButtonDownFcn(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function inductance_plot_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to inductance_plot (see GCBO)
+function hall_plot_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to hall_plot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
-% Hint: place code in OpeningFcn to populate inductance_plot
+% Hint: place code in OpeningFcn to populate hall_plot
+
+
+% --- Executes during object creation, after setting all properties.
+function force_text_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to force_text (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
