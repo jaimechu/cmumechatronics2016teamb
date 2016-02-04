@@ -1,7 +1,8 @@
-const int TEMP_IN = A2; 
-int sensor_value, temp;
-int k = 1; 
-int b = 1;
+const int TEMP_IN = A5; 
+int sensor_value;
+float temp;
+float k = 0.8227; 
+float b = 76.971;
 
 void setup() {
   Serial.begin(9600);
@@ -10,10 +11,10 @@ void setup() {
 }
 
 void loop() {
-  sensor_value = analogRead(TEMP_IN);
+  sensor_value = (float)analogRead(TEMP_IN);
   temp = sensor_value*k + b;
   Serial.print(sensor_value);
   Serial.print(" \t");
-  Serial.print(temp);
+  Serial.println(temp);
   delay(300);
 }
