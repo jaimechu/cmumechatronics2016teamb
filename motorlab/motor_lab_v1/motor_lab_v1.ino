@@ -28,6 +28,7 @@
  * 2/1/16: Nishant Pol: Initial release, combinaion of ldc1000, fsr, and matlab interface arduino code
  */
 #include <FreqMeasure.h>
+#include <PID_v1.h>
 
 /* Hall Sensor Macros and Globals */
 
@@ -79,6 +80,15 @@ const int ECHO_PIN = 13;
  int encoder0Pos = 0;
  int encoder0PinALast = LOW;
  int n = LOW;
+
+ //PID
+ //PID library code from http://playground.arduino.cc/Code/PIDLibrary
+ double Setpoint, Input, Output;
+ const double Kp = 10;
+ //Specify the links and initial tuning parameters
+ PID myPID(&Input, &Output, &Setpoint, 100,1,1,DIRECT);
+ int encoder_prev = 0;
+ 
 /* END DC Motor Macros and Globals */
 
 void setup() {
@@ -103,6 +113,7 @@ void loop() {
   uint16_t temp_reading = 0;
   uint16_t ultrasonic_reading = 0;
   int16_t encoder_val = 0;
+  int16_t motor_vel = 0;
   dc_encoder_loop();
   force_reading = fsr_loop(); 
   dc_encoder_loop(); 
@@ -120,7 +131,10 @@ void loop() {
   dc_encoder_loop();
   ultrasonic_reading = ultrasonic_loop();
   encoder_val = dc_encoder_loop();
-  dc_motor_loop();
+  motor_vel = pid_loop(encoder_val);
+  dc_encoder_loop();
+  dc_motor_loop(motor_vel);
+  dc_encoder_loop();
   Serial.print(force_reading);
   Serial.write('\t');
   Serial.print(hall_reading);
@@ -138,9 +152,10 @@ void loop() {
   Serial.print(ultrasonic_reading);
   Serial.write('\t');
   Serial.print(encoder_val);
+  Serial.write('\t');
+  Serial.print(motor_vel);
   Serial.write('\n');
-  //delay(100);
-  /* Force Inductance Optical Temp Ultrasonic */
+  /* Force Inductance Optical (4) Temp Ultrasonic Encoder Motor*/
 }
 
 /* Hall effect functions */
@@ -274,6 +289,12 @@ void dc_motor_setup(){
    pinMode(encoder0PinB,INPUT);
    pinMode(dcmotor_I1,OUTPUT);
    pinMode(dcmotor_I2,OUTPUT);
+
+  //PID setup
+  Input = 0;  //Encoder count/speed is 0
+  Setpoint = 10;
+  myPID.SetMode(MANUAL);
+  //myPID.SetTunings(100,1,1);//Kp, Ki, Kd
 }
 
 // Code from http://playground.arduino.cc/Main/RotaryEncoders#Example1
@@ -290,10 +311,31 @@ int dc_encoder_loop() {
    return encoder0Pos;
  } 
 
-void dc_motor_loop(){
-  analogWrite(dcmotor_I1,100);
-  //digitalWrite(9,HIGH);
-  digitalWrite(dcmotor_I2,LOW);
+void dc_motor_loop(int motor_velocity){
+  if(motor_velocity >= 0){
+    analogWrite(dcmotor_I1,motor_velocity);
+    digitalWrite(dcmotor_I2,LOW);
+  } else {
+    analogWrite(dcmotor_I1,-motor_velocity);
+    digitalWrite(dcmotor_I2,HIGH); 
+  }  
+}
+
+int pid_loop(int encoder_count){
+  Input = encoder_count - encoder_prev;
+  Serial.println(Input);
+  encoder_prev = encoder_count;
+  //myPID.Compute();
+  Output = Kp*(Setpoint-Input);
+  int motor_out = 0;
+  if(Output > 127){
+    motor_out = 127;
+  } else if(Output < -127){
+    motor_out = -127;
+  } else {
+    motor_out = (int)Output;
+  }
+  return motor_out;
 }
 
 /* END DC Motor functions */
