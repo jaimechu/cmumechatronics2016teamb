@@ -39,6 +39,8 @@ void loop()
     Serial.println("Out of range");
   }
   else {
+    Serial.print(duration);
+    Serial.print("\t");
     Serial.print(distanceIn);
     Serial.print("in, ");
     Serial.print(distanceCm);
