@@ -24,6 +24,9 @@
  * D12: Trigger
  * D13: Echo
  * 
+ * Potentiometer (ADC)
+ *  A4: tap
+ * 
  * Version history:
  * 2/1/16: Nishant Pol: Initial release, combinaion of ldc1000, fsr, and matlab interface arduino code
  */
@@ -83,17 +86,25 @@ const int ECHO_PIN = 13;
 
  //PID
  //PID library code from http://playground.arduino.cc/Code/PIDLibrary
- double Setpoint, Input, Output;
- const double Kp = 20;
+ double Input, Output;
+ double Setpoint = 3;
+ const double Kp = 10;
+ const double Ki = 5;
+ const double Kd = 0;
  //Specify the links and initial tuning parameters
  PID myPID(&Input, &Output, &Setpoint, 100,1,1,DIRECT);
  int encoder_prev = 0;
+
+const uint8_t I_sum_size = 50;
+double I_sum[I_sum_size];
+uint8_t I_sum_head = 0;
+ 
  int16_t encoder_old = 0;
 /* END DC Motor Macros and Globals */
 
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(9600); //Open serial port for computer
+  Serial.begin(115200); //Open serial port for computer
   //No hall setup
   fsr_setup();
   optical_setup();
@@ -132,6 +143,7 @@ void loop() {
   //dc_encoder_loop();
   //ultrasonic_reading = ultrasonic_loop();
   */
+  update_setpoint();
   encoder_val = dc_encoder_loop();
   motor_vel = pid_loop(encoder_val);
   dc_encoder_loop();
@@ -169,8 +181,12 @@ void loop() {
   Serial.write('\t');
   dc_encoder_loop();
   Serial.print(motor_vel);
+  Serial.write('\t');
+  Serial.print((int)Setpoint);
   Serial.write('\n');
-  dc_encoder_loop();
+  for(int i = 0; i < 2000; i++){
+    dc_encoder_loop();
+  }
   /* Force Inductance Optical (4) Temp Ultrasonic Encoder Motor*/
 }
 
@@ -308,7 +324,6 @@ void dc_motor_setup(){
 
   //PID setup
   Input = 0;  //Encoder count/speed is 0
-  Setpoint = 2;
   //myPID.SetMode(MANUAL);
   //myPID.SetTunings(100,1,1);//Kp, Ki, Kd
 }
@@ -345,7 +360,14 @@ int pid_loop(int encoder_count){
  // Serial.println(Input);
   encoder_prev = encoder_count;
   //myPID.Compute();
-  Output = Kp*(Setpoint-Input);
+  I_sum[I_sum_head] = Setpoint-Input;
+  I_sum_head++;
+  I_sum_head = I_sum_head % I_sum_size;
+  double I_sum_total = 0;
+  for(uint8_t i = 0; i < I_sum_size; i++){
+    I_sum_total += I_sum[i];
+  }
+  Output = Kp*(Setpoint-Input) + Ki*I_sum_total;
   int16_t motor_out = 0;
   if(Output > 127){
     motor_out = 127;
@@ -355,6 +377,11 @@ int pid_loop(int encoder_count){
     motor_out = (int)Output;
   }
   return motor_out;
+}
+
+void update_setpoint(void){
+  uint16_t pot_read = analogRead(A4);
+  Setpoint = map(pot_read,0,1024,-5,5);
 }
 
 /* END DC Motor functions */
