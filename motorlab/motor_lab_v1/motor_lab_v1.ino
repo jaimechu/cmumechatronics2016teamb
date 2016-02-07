@@ -86,11 +86,13 @@ const int ECHO_PIN = 13;
 
  //PID
  //PID library code from http://playground.arduino.cc/Code/PIDLibrary
+ enum pid_mode_type {MODE_OFF, MODE_SPEED, MODE_POSITION};
+ pid_mode_type pid_mode = MODE_POSITION;
  double Input, Output;
  double Setpoint = 3;
- const double Kp = 10;
- const double Ki = 5;
- const double Kd = 0;
+ //const double Kp = 10;
+ //const double Ki = 5;
+ //const double Kd = 0;
  //Specify the links and initial tuning parameters
  PID myPID(&Input, &Output, &Setpoint, 100,1,1,DIRECT);
  int encoder_prev = 0;
@@ -100,6 +102,7 @@ double I_sum[I_sum_size];
 uint8_t I_sum_head = 0;
  
  int16_t encoder_old = 0;
+ int16_t encoder_original = 0;
 /* END DC Motor Macros and Globals */
 
 void setup() {
@@ -356,19 +359,34 @@ void dc_motor_loop(int16_t motor_velocity){
 }
 
 int pid_loop(int encoder_count){
+  double error;
+  int16_t motor_out = 0;
+  double Kp = 0;
+  double Ki = 0;
+  if(pid_mode == MODE_OFF){
+    motor_out = 0;
+    return motor_out;
+  } else if(pid_mode == MODE_POSITION){
+    error = Setpoint - (encoder_count - encoder_original);
+    Kp = 10;
+    Ki = 0;
+  } else if(pid_mode == MODE_SPEED){
+    error = Setpoint - (encoder_count-encoder_prev);
+    Kp = 10;
+    Ki = 5;
+  }
+  //double error = Setpoint-Input;
   Input = encoder_count - encoder_prev;
- // Serial.println(Input);
   encoder_prev = encoder_count;
   //myPID.Compute();
-  I_sum[I_sum_head] = Setpoint-Input;
+  I_sum[I_sum_head] = error;
   I_sum_head++;
   I_sum_head = I_sum_head % I_sum_size;
   double I_sum_total = 0;
   for(uint8_t i = 0; i < I_sum_size; i++){
     I_sum_total += I_sum[i];
   }
-  Output = Kp*(Setpoint-Input) + Ki*I_sum_total;
-  int16_t motor_out = 0;
+  Output = Kp*(error) + Ki*I_sum_total;  
   if(Output > 127){
     motor_out = 127;
   } else if(Output < -127){
@@ -381,7 +399,13 @@ int pid_loop(int encoder_count){
 
 void update_setpoint(void){
   uint16_t pot_read = analogRead(A4);
-  Setpoint = map(pot_read,0,1024,-5,5);
+  if(pid_mode == MODE_OFF){
+    Setpoint = 0;
+  } else if(pid_mode == MODE_SPEED){
+    Setpoint = map(pot_read,0,1024,-5,5);
+  } else if(pid_mode == MODE_POSITION){
+    Setpoint = map(pot_read,0,1024,-30,30);
+  }
 }
 
 /* END DC Motor functions */
