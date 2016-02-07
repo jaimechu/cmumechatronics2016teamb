@@ -86,8 +86,8 @@ const int ECHO_PIN = 13;
 
  //PID
  //PID library code from http://playground.arduino.cc/Code/PIDLibrary
- enum pid_mode_type {MODE_OFF, MODE_SPEED, MODE_POSITION};
- pid_mode_type pid_mode = MODE_POSITION;
+ //enum pid_mode_type {PIDMODE_OFF, PIDMODE_SPEED, PIDMODE_POSITION};
+ //pid_mode_type pid_mode = PIDMODE_POSITION;
  double Input, Output;
  double Setpoint = 3;
  //const double Kp = 10;
@@ -104,6 +104,13 @@ uint8_t I_sum_head = 0;
  int16_t encoder_old = 0;
  int16_t encoder_original = 0;
 /* END DC Motor Macros and Globals */
+
+/* Mode Macros and Globals */
+
+enum mode_type {MODE_DC_POT_SPEED, MODE_DC_POT_POS, MODE_STEP_HALL, MODE_SERVO_FSR, MODE_DC_GUI_SPEED, MODE_DC_GUI_POS, MODE_STEP_GUI, MODE_SERVO_GUI};
+mode_type op_mode = MODE_DC_POT_SPEED;
+uint8_t button_prev = HIGH;
+/* END Mode Macros and Globals */
 
 void setup() {
   // put your setup code here, to run once:
@@ -146,12 +153,15 @@ void loop() {
   //dc_encoder_loop();
   //ultrasonic_reading = ultrasonic_loop();
   */
+  check_mode();
   update_setpoint();
   encoder_val = dc_encoder_loop();
   motor_vel = pid_loop(encoder_val);
   dc_encoder_loop();
   dc_motor_loop(motor_vel);
   dc_encoder_loop();
+  Serial.print(op_mode);
+  Serial.write('\t');
   Serial.print(force_reading);
   Serial.write('\t');
   dc_encoder_loop();
@@ -363,17 +373,17 @@ int pid_loop(int encoder_count){
   int16_t motor_out = 0;
   double Kp = 0;
   double Ki = 0;
-  if(pid_mode == MODE_OFF){
-    motor_out = 0;
-    return motor_out;
-  } else if(pid_mode == MODE_POSITION){
+  if((op_mode == MODE_DC_POT_POS) || (op_mode == MODE_DC_GUI_POS)){
     error = Setpoint - (encoder_count - encoder_original);
     Kp = 10;
     Ki = 0;
-  } else if(pid_mode == MODE_SPEED){
+  } else if((op_mode == MODE_DC_POT_SPEED) || (op_mode == MODE_DC_GUI_SPEED)){
     error = Setpoint - (encoder_count-encoder_prev);
     Kp = 10;
     Ki = 5;
+  } else {
+    motor_out = 0;
+    return motor_out;
   }
   //double error = Setpoint-Input;
   Input = encoder_count - encoder_prev;
@@ -399,14 +409,73 @@ int pid_loop(int encoder_count){
 
 void update_setpoint(void){
   uint16_t pot_read = analogRead(A4);
-  if(pid_mode == MODE_OFF){
-    Setpoint = 0;
-  } else if(pid_mode == MODE_SPEED){
+  if(op_mode == MODE_DC_GUI_SPEED){
+    Setpoint = 0; //TODO get from gui
+  } else if(op_mode == MODE_DC_GUI_POS){
+    Setpoint = 0; //TODO get from gui
+  } else if(op_mode == MODE_DC_POT_SPEED){
     Setpoint = map(pot_read,0,1024,-5,5);
-  } else if(pid_mode == MODE_POSITION){
+  } else if(op_mode == MODE_DC_POT_POS){
     Setpoint = map(pot_read,0,1024,-30,30);
+  } else {
+    Setpoint = 0;
+  }
+}
+
+void clear_Isum(void){
+  for(int i = 0; i < I_sum_size; i++){
+    I_sum[i] = 0;
   }
 }
 
 /* END DC Motor functions */
 
+/* Mode set functions */
+
+void check_mode(void){
+  uint8_t button_state = digitalRead(13);
+  if((button_state == LOW) && (button_prev == HIGH)){  //Falling edge
+    switch(op_mode){
+      case MODE_DC_POT_SPEED:
+        op_mode = MODE_DC_POT_POS;
+        clear_Isum();
+        break;
+      case MODE_DC_POT_POS:
+        op_mode = MODE_STEP_HALL;
+        break;
+      case MODE_STEP_HALL:
+        op_mode = MODE_SERVO_FSR;
+        break;
+      case MODE_SERVO_FSR:
+        op_mode = MODE_DC_GUI_SPEED;
+        break;
+      case MODE_DC_GUI_SPEED:
+        op_mode = MODE_DC_GUI_POS;
+        clear_Isum();
+        break;
+      case MODE_DC_GUI_POS:
+        op_mode = MODE_STEP_GUI;
+        clear_Isum();
+        break;
+      case MODE_STEP_GUI:
+        op_mode = MODE_SERVO_GUI;
+        break;
+      case MODE_SERVO_GUI:
+        op_mode = MODE_DC_POT_SPEED;
+        clear_Isum();
+        break;
+      default:
+        op_mode = MODE_DC_POT_SPEED;
+        clear_Isum();
+        break;
+    }
+  }
+  button_prev = button_state;
+  return;
+}
+
+/* END Mode set functions */
+
+/* Servo functions */
+
+/* Stepper functions */
