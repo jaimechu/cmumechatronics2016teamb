@@ -84,11 +84,11 @@ const int ECHO_PIN = 13;
  //PID
  //PID library code from http://playground.arduino.cc/Code/PIDLibrary
  double Setpoint, Input, Output;
- const double Kp = 10;
+ const double Kp = 20;
  //Specify the links and initial tuning parameters
  PID myPID(&Input, &Output, &Setpoint, 100,1,1,DIRECT);
  int encoder_prev = 0;
- 
+ int16_t encoder_old = 0;
 /* END DC Motor Macros and Globals */
 
 void setup() {
@@ -114,6 +114,7 @@ void loop() {
   uint16_t ultrasonic_reading = 0;
   int16_t encoder_val = 0;
   int16_t motor_vel = 0;
+  /*
   dc_encoder_loop();
   force_reading = fsr_loop(); 
   dc_encoder_loop(); 
@@ -128,8 +129,9 @@ void loop() {
   optical_reading_green = optical_loop_green();
   dc_encoder_loop();
   temp_reading = thermocouple_loop();
-  dc_encoder_loop();
-  ultrasonic_reading = ultrasonic_loop();
+  //dc_encoder_loop();
+  //ultrasonic_reading = ultrasonic_loop();
+  */
   encoder_val = dc_encoder_loop();
   motor_vel = pid_loop(encoder_val);
   dc_encoder_loop();
@@ -137,24 +139,38 @@ void loop() {
   dc_encoder_loop();
   Serial.print(force_reading);
   Serial.write('\t');
+  dc_encoder_loop();
   Serial.print(hall_reading);
   Serial.write('\t');
+  dc_encoder_loop();
   Serial.print(optical_reading_red);
   Serial.write('\t');
+  dc_encoder_loop();
   Serial.print(optical_reading_blue);
   Serial.write('\t');
+  dc_encoder_loop();
   Serial.print(optical_reading_clear);
   Serial.write('\t');
+  dc_encoder_loop();
   Serial.print(optical_reading_green);
   Serial.write('\t');
+  dc_encoder_loop();
   Serial.print(temp_reading);
   Serial.write('\t');
+  dc_encoder_loop();
   Serial.print(ultrasonic_reading);
   Serial.write('\t');
+  dc_encoder_loop();
   Serial.print(encoder_val);
   Serial.write('\t');
+  dc_encoder_loop();
+  Serial.print(encoder_val - encoder_old);
+  encoder_old = encoder_val;
+  Serial.write('\t');
+  dc_encoder_loop();
   Serial.print(motor_vel);
   Serial.write('\n');
+  dc_encoder_loop();
   /* Force Inductance Optical (4) Temp Ultrasonic Encoder Motor*/
 }
 
@@ -292,8 +308,8 @@ void dc_motor_setup(){
 
   //PID setup
   Input = 0;  //Encoder count/speed is 0
-  Setpoint = 10;
-  myPID.SetMode(MANUAL);
+  Setpoint = 2;
+  //myPID.SetMode(MANUAL);
   //myPID.SetTunings(100,1,1);//Kp, Ki, Kd
 }
 
@@ -311,23 +327,26 @@ int dc_encoder_loop() {
    return encoder0Pos;
  } 
 
-void dc_motor_loop(int motor_velocity){
-  if(motor_velocity >= 0){
-    analogWrite(dcmotor_I1,motor_velocity);
+void dc_motor_loop(int16_t motor_velocity){
+  if(motor_velocity > 0){
+    analogWrite(dcmotor_I1,map(motor_velocity,0,255,66,255));
     digitalWrite(dcmotor_I2,LOW);
-  } else {
-    analogWrite(dcmotor_I1,-motor_velocity);
+  } else if(motor_velocity < 0){
+    analogWrite(dcmotor_I1,map(255+motor_velocity,0,255,66,255));
     digitalWrite(dcmotor_I2,HIGH); 
-  }  
+  }  else {
+    analogWrite(dcmotor_I1,0);
+    digitalWrite(dcmotor_I2,LOW);
+  }
 }
 
 int pid_loop(int encoder_count){
   Input = encoder_count - encoder_prev;
-  Serial.println(Input);
+ // Serial.println(Input);
   encoder_prev = encoder_count;
   //myPID.Compute();
   Output = Kp*(Setpoint-Input);
-  int motor_out = 0;
+  int16_t motor_out = 0;
   if(Output > 127){
     motor_out = 127;
   } else if(Output < -127){
