@@ -26,12 +26,15 @@
  * 
  * Potentiometer (ADC)
  *  A4: tap
+ *  
  * 
  * Version history:
  * 2/1/16: Nishant Pol: Initial release, combinaion of ldc1000, fsr, and matlab interface arduino code
  */
 #include <FreqMeasure.h>
-#include <PID_v1.h>
+//#include <PID_v1.h>
+#include <Servo.h>
+#include <Stepper.h>
 
 /* Hall Sensor Macros and Globals */
 
@@ -45,7 +48,7 @@ const int ptD = A0; // leftmost side
 const int ptB = A1; // right most sides
 int sensorValue = 0; 
 
-int sensorB, sensorD = 10;
+int sensorB, sensorD = 0;
 
 /* END FSR Macros and Globals */
 
@@ -94,7 +97,7 @@ const int ECHO_PIN = 13;
  //const double Ki = 5;
  //const double Kd = 0;
  //Specify the links and initial tuning parameters
- PID myPID(&Input, &Output, &Setpoint, 100,1,1,DIRECT);
+// PID myPID(&Input, &Output, &Setpoint, 100,1,1,DIRECT);
  int encoder_prev = 0;
 
 const uint8_t I_sum_size = 50;
@@ -105,6 +108,22 @@ uint8_t I_sum_head = 0;
  int16_t encoder_original = 0;
 /* END DC Motor Macros and Globals */
 
+/*Servo Macros and Globals*/
+Servo myservo; 
+int pos = 0;
+const int SERVO_PIN = 11;
+/*END Servo Macros and Globals */
+
+/*Stepper Macros and Globals */
+const int STEPPER_PIN1 = 2; 
+const int STEPPER_PIN2 = 3; 
+uint16_t TOTAL_STEPS = 200;
+uint8_t current_step = 0; 
+uint8_t stepper_setpoint = 0;
+Stepper myStepper(TOTAL_STEPS, STEPPER_PIN1, STEPPER_PIN2);
+
+
+/*END Stepper Macros and Globals */
 /* Mode Macros and Globals */
 
 enum mode_type {MODE_DC_POT_SPEED, MODE_DC_POT_POS, MODE_STEP_HALL, MODE_SERVO_FSR, MODE_DC_GUI_SPEED, MODE_DC_GUI_POS, MODE_STEP_GUI, MODE_SERVO_GUI};
@@ -121,6 +140,7 @@ void setup() {
   thermocouple_setup();
   ultrasonic_setup();
   dc_motor_setup();
+  servo_setup();
 }
 
 void loop() {
@@ -160,6 +180,10 @@ void loop() {
   dc_encoder_loop();
   dc_motor_loop(motor_vel);
   dc_encoder_loop();
+  servo_loop();
+  dc_encoder_loop();
+  update_stepper_setpoint();
+
   Serial.print(op_mode);
   Serial.write('\t');
   Serial.print(force_reading);
@@ -341,6 +365,11 @@ void dc_motor_setup(){
   //myPID.SetTunings(100,1,1);//Kp, Ki, Kd
 }
 
+void servo_setup(){
+  myservo.attach(SERVO_PIN);
+  
+}
+
 // Code from http://playground.arduino.cc/Main/RotaryEncoders#Example1
 int dc_encoder_loop() { 
    n = digitalRead(encoder0PinA);
@@ -477,5 +506,48 @@ void check_mode(void){
 /* END Mode set functions */
 
 /* Servo functions */
+void servo_loop(){
+  uint16_t force_reading = 0;
+  uint16_t force_threshold = 1;
+  force_reading = fsr_loop();
+
+  if(op_mode == MODE_SERVO_GUI || op_mode == MODE_SERVO_FSR){
+    if(force_reading > force_threshold){
+      myservo.write(180); 
+    }
+    else{
+      myservo.write(0);
+    }
+  }
+  else{
+    myservo.write(0);
+    return;
+  }
+}
+/*END servo function */
 
 /* Stepper functions */
+void update_stepper_setpoint(void){
+  if(op_mode == MODE_STEP_GUI || op_mode == MODE_STEP_HALL){
+    stepper_setpoint = hall_loop();
+  }
+  else{
+    stepper_setpoint = 0;
+  }
+}
+
+void stepper_loop(){
+  
+  if(op_mode == MODE_STEP_GUI || op_mode == MODE_STEP_HALL){
+      if(current_step < stepper_setpoint){ // increment one step
+        myStepper.step(1); 
+        current_step++;
+      }
+      else if(current_step > stepper_setpoint){ // decrement one step
+        myStepper.step(-1);
+        current_step--;
+      }
+  }
+  return;
+}
+
