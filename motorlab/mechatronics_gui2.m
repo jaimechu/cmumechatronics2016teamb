@@ -23,7 +23,7 @@ function varargout = mechatronics_gui2(varargin)
 
 % Edit the above text to modify the response to help mechatronics_gui2
 
-% Last Modified by GUIDE v2.5 03-Feb-2016 08:18:14
+% Last Modified by GUIDE v2.5 07-Feb-2016 19:44:38
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -45,7 +45,7 @@ end
 % End initialization code - DO NOT EDIT
 
 % --- Executes just before mechatronics_gui2 is made visible.
-function mechatronics_gui2_OpeningFcn(hObject, eventdata, handles, varargin)
+function mechatronics_gui2_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -54,19 +54,22 @@ function mechatronics_gui2_OpeningFcn(hObject, eventdata, handles, varargin)
 
 delete(instrfindall) % This deletes previous serial connections
 
-data = guidata(hObject);
+%data = guidata(hObject);
 
 % Previously, we set up the lists in these handles.
 % Now these just serve to set up our lists
 % They will be concatinated to later
 handles.force_reading = [0 0];
 handles.hall_reading = [0 0];
-handles.opticalR_reading = [0 0];
-handles.opticalB_reading = [0.001 0.001];
-handles.opticalC_reading = [0.002 0.002];
-handles.opticalG_reading = [-0.001 -0.001];
-handles.temperature_reading = [0 0];
-handles.ultrasonic_reading = [0 0];
+handles.pot_reading = [0 0];
+% Lists are shared for motors and are reset every time mode is switched
+% One list for commanded value done through GUI or sensor
+handles.motor_command_reading = [0 0];
+% One list for actual value
+% For dc motor, actual value is encoder reading
+% For stepper, this is open-loop position
+% For servo, copy of commanded value (Arduino sends back commanded value)
+handles.motor_actual_reading = [0 0];
 
 % Now we set up a timer. 
 % It will wait 2 seconds.
@@ -82,10 +85,10 @@ handles.timer = timer('StartDelay', 2, 'ExecutionMode', 'fixedRate', 'Period', 0
 % Create array to hold values from Arduino
 num_rows = 1000;
 num_cols = 8;
-Ts = 0.1;   %PIC sends data every Ts seconds
+%Ts = 0.1;   %PIC sends data every Ts seconds
 
 % Set up serial connection
-serial_port_name = 'COM19';%'/dev/cu.usbmodem1421'; % CHANGE THIS VALUE TO REFLECT BOARD
+serial_port_name = 'COM19';%'/dev/cu.usbmodem1421'; % CHANGE THIS VALUE TO REFLECT BOARD AND PC
 s = serial(serial_port_name);
 % set specific parameters
 s.Baudrate = 115200;
@@ -103,22 +106,18 @@ fopen(s); % open file for reading and writing
 % Primarily unused x values:    
 handles.time = [];
 
-% Plot initial values
+% Plot initial dummy values
 axes(handles.force_plot)
 plot(handles.force_reading);
 axes(handles.hall_plot)
 plot(handles.hall_reading);
-axes(handles.optical_plot)
-hold all % so that optical plots can be put on top of each other
-plot(handles.opticalR_reading, 'r');
-plot(handles.opticalB_reading, 'b');
-plot(handles.opticalC_reading, 'k');
-plot(handles.opticalG_reading, 'g');
-hold off
-axes(handles.temperature_plot)
-plot(handles.temperature_reading);
-axes(handles.ultrasonic_plot)
-plot(handles.ultrasonic_reading);
+axes(handles.potentiometer_plot)
+plot(handles.pot_reading);
+hold all;    %Plot both motor command and actual on same plot
+axes(handles.motor_plot)
+plot(handles.motor_command_reading,'r');
+plot(handles.motor_actual_reading,'g');
+hold off;
 
 % Choose default command line output for mechatronics_gui2
 handles.output = hObject;
@@ -127,6 +126,7 @@ handles.s = s; % save the serial identification
 % Update handles structure
 guidata(hObject, handles);
 
+%Start timer to update GUI
 if strcmp(get(handles.timer, 'Running'), 'off')
     start(handles.timer);
 end
@@ -137,20 +137,21 @@ end
 % UIWAIT makes mechatronics_gui2 wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
 
+% This function is the update loop that checks for data from the Arduino,
+% and accordingly updates the plots
 function update_display(hObject, eventdata, hfigure)
-fprintf('update\n');
-
+%fprintf('update\n');
+%handles is not passed in, get it from hfigure, which is passed in
 handles = guidata(hfigure); %rename this stand-in variable
-
-%data = guidata(hfigure)
 
 s = handles.s;
 
-    while(s.BytesAvailable > 0)
+    while(s.BytesAvailable > 0)%While data is ready to be read
   
         tmp = fgetl(s); % Read text data
         %fprintf(tmp);
         %[theta error pwm_val gain_num gain_den]
+        %Sometimes data is corrupted, so do try method
         try
             [mode force hall opticalR opticalB opticalC opticalG temperature ultrasonic dc_location dc_speed dc_pwm dc_setpoint] = strread(tmp,'%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d');
         catch
@@ -163,32 +164,21 @@ s = handles.s;
         % Add new values to the end of the current value lists
         handles.force_reading = horzcat(handles.force_reading, force);
         handles.hall_reading = horzcat(handles.hall_reading, hall);
-        handles.opticalR_reading = horzcat(handles.opticalR_reading, opticalR);
-        handles.opticalB_reading = horzcat(handles.opticalB_reading, opticalB);
-        handles.opticalC_reading = horzcat(handles.opticalC_reading, opticalC);
-        handles.opticalG_reading = horzcat(handles.opticalG_reading, opticalG);
-        handles.temperature_reading = horzcat(handles.temperature_reading, temperature);
-        handles.ultrasonic_reading = horzcat(handles.ultrasonic_reading, ultrasonic);
-
-        % Primarily unused x values
-        %handles.time = [0: .1: length(handles.ultrasonic_reading];
+        handles.pot_reading = horzcat(handles.pot_reading,);    %Todo get value from input string
+        handles.motor_command_reading = horzcat(handles.motor_command_reading,);
+        handles.motor_actual_reading = horzcat(handles.motor_actual_reading,);
         
-        %Plot our new values)
+        %Plot our new values
         axes(handles.force_plot)
         plot(handles.force_reading, 'parent', handles.force_plot);
         axes(handles.hall_plot)
         plot(handles.hall_reading, 'parent', handles.hall_plot);
-        axes(handles.optical_plot)
+        axes(handles.potentiometer_plot)
+        plot(handles.pot_reading, 'parent', handles.potentiometer_plot);
         hold all
-        plot(handles.opticalR_reading, 'r', 'parent', handles.optical_plot);
-        plot(handles.opticalB_reading, 'b', 'parent', handles.optical_plot);
-        plot(handles.opticalC_reading, 'k', 'parent', handles.optical_plot);
-        plot(handles.opticalG_reading, 'g', 'parent', handles.optical_plot);
+        plot(handles.motor_command_reading, 'r', 'parent', handles.motor_plot);
+        plot(handles.motor_actual_reading, 'g', 'parent', handles.motor_plot);
         hold off
-        axes(handles.temperature_plot)
-        plot(handles.temperature_reading, 'parent', handles.temperature_plot);
-        axes(handles.ultrasonic_plot)
-        plot(handles.ultrasonic_reading, 'parent', handles.ultrasonic_plot);
 
         % Display values as floats
         handles.force_string = sprintf('Force Sensor Reading [N]:\n\t      %.2f',force);
@@ -196,15 +186,10 @@ s = handles.s;
 
         handles.hall_string = sprintf('Hall Effect Sensor Reading [micrometers]:\n\t             %.0f',hall);
         set(handles.hall_text, 'String', handles.hall_string); 
-
-        handles.optical_string = sprintf('Optical Sensor Readings [R, B, C, G]:\n%.0f,     %.0f,     %.0f,     %.0f',opticalR, opticalB, opticalC, opticalG);
-        set(handles.optical_text, 'String', handles.optical_string); 
         
-        handles.temperature_string = sprintf('Temperature Sensor Reading [deg F]:\n\t         %.2f',temperature);
-        set(handles.temperature_text, 'String', handles.temperature_string); 
-
-        handles.ultrasonic_string = sprintf('Ultrasonic Sensor Reading [cm]:\n\t         %.2f',ultrasonic);
-        set(handles.ultrasonic_text, 'String', handles.ultrasonic_string);  
+        handles.pot_string = sprintf('Potentiometer Reading [V]:\n\t             %.0f',potentiometer);
+        set(handles.potentiometer_text, 'String', handles.pot_string); 
+         
         %fprintf('done')
         % Update figure
         guidata(hfigure, handles);
@@ -219,11 +204,11 @@ fprintf('in close');
     if(strcmp(get(handles.timer, 'Running'),'on'))
         stop(handles.timer);
     end
-    delete(handles.timer)
+    delete(handles.timer)   %Delete the timer so callback doesn't execute
     s = handles.s;
-    fclose(s)
-    delete(hObject);
-    delete(instrfindall)
+    fclose(s)               %Attempt to close the serial connection
+    delete(hObject);        %Delete the GUI
+    delete(instrfindall)    %Close any lingering serial connections
 
 
 
@@ -236,14 +221,6 @@ function varargout = mechatronics_gui2_OutputFcn(hObject, eventdata, handles)
 
 % Get default command line output from handles structure
 varargout{1} = handles.output;
-
-
-% --- Executes during object creation, after setting all properties.
-function ultrasonic_text_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to ultrasonic_text (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
 
 % % --- Executes on selection change in plot_popup.
 % function plot_popup_Callback(hObject, eventdata, handles)
@@ -284,18 +261,18 @@ end
 
 
 
-function servo_edit_Callback(hObject, eventdata, handles)
-% hObject    handle to servo_edit (see GCBO)
+function motor_edit_Callback(hObject, eventdata, handles)
+% hObject    handle to motor_edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of servo_edit as text
-%        str2double(get(hObject,'String')) returns contents of servo_edit as a double
+% Hints: get(hObject,'String') returns contents of motor_edit as text
+%        str2double(get(hObject,'String')) returns contents of motor_edit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function servo_edit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to servo_edit (see GCBO)
+function motor_edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to motor_edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -305,51 +282,6 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-
-
-function stepper_edit_Callback(hObject, eventdata, handles)
-% hObject    handle to stepper_edit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of stepper_edit as text
-%        str2double(get(hObject,'String')) returns contents of stepper_edit as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function stepper_edit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to stepper_edit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
-
-function dc_edit_Callback(hObject, eventdata, handles)
-% hObject    handle to dc_edit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of dc_edit as text
-%        str2double(get(hObject,'String')) returns contents of dc_edit as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function dc_edit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to dc_edit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
 
 
 % --- Executes on key press with focus on plot_popup and none of its controls.
@@ -361,25 +293,6 @@ function plot_popup_KeyPressFcn(hObject, eventdata, handles)
 %	Modifier: name(s) of the modifier key(s) (i.e., control, shift) pressed
 % handles    structure with handles and user data (see GUIDATA)
 
-
-% --- Executes on button press in start_pushbutton.
-function start_pushbutton_Callback(hObject, eventdata, handles)
-% hObject    handle to start_pushbutton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-%loop(hObject, eventdata, handles)
-if strcmp(get(handles.timer, 'Running'), 'off')
-    start(handles.timer);
-end
-
-
-
-% --- If Enable == 'on', executes on mouse press in 5 pixel border.
-% --- Otherwise, executes on mouse press in 5 pixel border or over start_pushbutton.
-function start_pushbutton_ButtonDownFcn(hObject, eventdata, handles)
-% hObject    handle to start_pushbutton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 
 
 % --- If Enable == 'on', executes on mouse press in 5 pixel border.
@@ -420,3 +333,20 @@ function force_plot_ButtonDownFcn(hObject, eventdata, handles)
 % hObject    handle to force_plot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in sendButton.
+function sendButton_Callback(hObject, eventdata, handles)
+% hObject    handle to sendButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+    user_command_double = str2double(get(handles.motor_edit,'String'));
+    %Check if user value is actually a 16-bit signed integer
+    if((rem(user_command_double,1)==0) && (abs(user_command_double) < 32768))
+        s = handles.s;  %Handle to serial port
+        [lsb,msb] = typecast(int16(user_command_double),'int8');
+        fwrite(s,[msb,lsb,'\n']);
+    else
+        set(handles.motor_edit,'String','0')
+    end
+        
