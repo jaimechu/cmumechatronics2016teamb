@@ -10,73 +10,32 @@
  * A1: right/variable side
  * Tested with wheastone bridge, 2.2k ohms, placed on left pin and right pin as B and D
  * 
- * Optical (Digital)
- * D2: S0
- * D3: S1
- * D4: S2
- * D5: S3
- * D8: OUT
- * 
- * Thermocouple (ADC)
- * A5: OUT
- * 
- * Ultrasonic (Digital)
- * D12: Trigger
- * D13: Echo
- * 
  * Potentiometer (ADC)
  *  A4: tap
- *  
  * 
  * Version history:
- * 2/1/16: Nishant Pol: Initial release, combinaion of ldc1000, fsr, and matlab interface arduino code
+ * 2/1/16: Nishant Pol - Initial release, combinaion of ldc1000, fsr, and matlab interface arduino code
+ * 2/7/16: Jaime Chu - includes dc, stepper, servo motor 
  */
 #include <FreqMeasure.h>
-//#include <PID_v1.h>
 #include <Servo.h>
 #include <Stepper.h>
 
+/* Serial read Macros and Globals */
+char inData[24];
+/*END Serial read Macros and Globals */
+
 /* Hall Sensor Macros and Globals */
-
 const uint8_t hall_pin = A2;
-
 /* END Hall Sensor Macros and Globals */
 
 /* FSR Macros and Globals */
-
 const int ptD = A0; // leftmost side
 const int ptB = A1; // right most sides
 int sensorValue = 0; 
 
 int sensorB, sensorD = 0;
-
 /* END FSR Macros and Globals */
-
-/* Optical Macros and Globals */
-
-uint8_t optical_S0_pin = 2;
-uint8_t optical_S1_pin = 3;
-uint8_t optical_S2_pin = 4;
-uint8_t optical_S3_pin = 5;
-
-/* END Optical Macros and Globals */
-
-/* Thermocouple Macros and Globals */
-
-const int TEMP_IN = A5; 
-int sensor_value;
-float temp;
-float k = 0.8227; 
-float b = 76.971;
-
-/* END Thermocouple Macros and Globals */
-
-/* Ultrasonic Macros and Globals */
-
-const int TRIG_PIN = 12;
-const int ECHO_PIN = 13;
-
-/* END Ultrasonic Macros and Globals */
 
 /* DC Motor Macros and Globals */ 
  const int encoder0PinA = 9;
@@ -88,147 +47,129 @@ const int ECHO_PIN = 13;
  int n = LOW;
 
  //PID
- //PID library code from http://playground.arduino.cc/Code/PIDLibrary
- //enum pid_mode_type {PIDMODE_OFF, PIDMODE_SPEED, PIDMODE_POSITION};
- //pid_mode_type pid_mode = PIDMODE_POSITION;
  double Input, Output;
  double Setpoint = 3;
- //const double Kp = 10;
- //const double Ki = 5;
- //const double Kd = 0;
- //Specify the links and initial tuning parameters
-// PID myPID(&Input, &Output, &Setpoint, 100,1,1,DIRECT);
  int encoder_prev = 0;
 
-const uint8_t I_sum_size = 50;
-double I_sum[I_sum_size];
-uint8_t I_sum_head = 0;
+ const uint8_t I_sum_size = 50;
+ double I_sum[I_sum_size];
+ uint8_t I_sum_head = 0;
  
  int16_t encoder_old = 0;
  int16_t encoder_original = 0;
 /* END DC Motor Macros and Globals */
 
 /*Servo Macros and Globals*/
-Servo myservo; 
-int pos = 0;
-const int SERVO_PIN = 11;
+ Servo myservo; 
+ int pos = 0;
+ const int SERVO_PIN = 11;
 /*END Servo Macros and Globals */
 
 /*Stepper Macros and Globals */
-const int STEPPER_PIN1 = 2; 
-const int STEPPER_PIN2 = 3; 
-uint16_t TOTAL_STEPS = 200;
-uint8_t current_step = 0; 
-uint8_t stepper_setpoint = 0;
-Stepper myStepper(TOTAL_STEPS, STEPPER_PIN1, STEPPER_PIN2);
-
-
+ const int STEPPER_PIN1 = 2; 
+ const int STEPPER_PIN2 = 3; 
+ uint16_t TOTAL_STEPS = 200;
+ uint8_t current_step = 0; 
+ uint16_t stepper_setpoint = 0;
+ Stepper myStepper(TOTAL_STEPS, STEPPER_PIN1, STEPPER_PIN2);
 /*END Stepper Macros and Globals */
-/* Mode Macros and Globals */
 
-enum mode_type {MODE_DC_POT_SPEED, MODE_DC_POT_POS, MODE_STEP_HALL, MODE_SERVO_FSR, MODE_DC_GUI_SPEED, MODE_DC_GUI_POS, MODE_STEP_GUI, MODE_SERVO_GUI};
+/* Mode Macros and Globals */
+ enum mode_type {MODE_DC_POT_SPEED, MODE_DC_POT_POS, MODE_STEP_HALL, MODE_SERVO_FSR, MODE_DC_GUI_SPEED, MODE_DC_GUI_POS, MODE_STEP_GUI, MODE_SERVO_GUI};
 mode_type op_mode = MODE_DC_POT_SPEED;
-uint8_t button_prev = HIGH;
+ uint8_t button_prev = HIGH;
 /* END Mode Macros and Globals */
 
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(115200); //Open serial port for computer
+  // No Serial read setup 
   //No hall setup
   fsr_setup();
-  optical_setup();
-  thermocouple_setup();
-  ultrasonic_setup();
+  //No pot setup
   dc_motor_setup();
   servo_setup();
+  //No stepper setup
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+  uint16_t gui_read = 0;
   uint16_t force_reading = 0;
   uint16_t hall_reading = 0;
-  uint16_t optical_reading_red = 0;
-  uint16_t optical_reading_blue = 0;
-  uint16_t optical_reading_clear = 0;
-  uint16_t optical_reading_green = 0;
-  uint16_t temp_reading = 0;
-  uint16_t ultrasonic_reading = 0;
+  uint16_t pot_reading = 0;
   int16_t encoder_val = 0;
   int16_t motor_vel = 0;
-  /*
+  uint16_t servo_pos = 0; 
+  uint16_t stepper_setpoint = 0;
+  uint8_t current_step = 0;
+  
+  gui_read = serial_read_loop(); 
   dc_encoder_loop();
   force_reading = fsr_loop(); 
   dc_encoder_loop(); 
   hall_reading = hall_loop();
   dc_encoder_loop();
-  optical_reading_red = optical_loop_red();
-  dc_encoder_loop();
-  optical_reading_blue = optical_loop_blue();
-  dc_encoder_loop();
-  optical_reading_clear = optical_loop_clear();
-  dc_encoder_loop();
-  optical_reading_green = optical_loop_green();
-  dc_encoder_loop();
-  temp_reading = thermocouple_loop();
-  //dc_encoder_loop();
-  //ultrasonic_reading = ultrasonic_loop();
-  */
   check_mode();
-  update_setpoint();
+  pot_reading =update_setpoint(gui_read);
   encoder_val = dc_encoder_loop();
   motor_vel = pid_loop(encoder_val);
   dc_encoder_loop();
   dc_motor_loop(motor_vel);
   dc_encoder_loop();
-  servo_loop();
+  servo_pos = servo_loop(gui_read);
   dc_encoder_loop();
-  update_stepper_setpoint();
+  stepper_setpoint = update_stepper_setpoint(gui_read);
+  current_step = stepper_loop();
 
   Serial.print(op_mode);
   Serial.write('\t');
+  dc_encoder_loop();
   Serial.print(force_reading);
   Serial.write('\t');
   dc_encoder_loop();
   Serial.print(hall_reading);
   Serial.write('\t');
   dc_encoder_loop();
-  Serial.print(optical_reading_red);
-  Serial.write('\t');
-  dc_encoder_loop();
-  Serial.print(optical_reading_blue);
-  Serial.write('\t');
-  dc_encoder_loop();
-  Serial.print(optical_reading_clear);
-  Serial.write('\t');
-  dc_encoder_loop();
-  Serial.print(optical_reading_green);
-  Serial.write('\t');
-  dc_encoder_loop();
-  Serial.print(temp_reading);
-  Serial.write('\t');
-  dc_encoder_loop();
-  Serial.print(ultrasonic_reading);
+  Serial.print(pot_reading);
   Serial.write('\t');
   dc_encoder_loop();
   Serial.print(encoder_val);
   Serial.write('\t');
   dc_encoder_loop();
-  Serial.print(encoder_val - encoder_old);
+  Serial.print(encoder_val - encoder_old); // encoder speed
   encoder_old = encoder_val;
   Serial.write('\t');
   dc_encoder_loop();
-  Serial.print(motor_vel);
+  Serial.print(motor_vel); // motor commanded velocity
   Serial.write('\t');
-  Serial.print((int)Setpoint);
+  Serial.print((int)Setpoint); // dc motor setpoint 
+  Serial.write('\t');
+  Serial.print(servo_pos); 
+  Serial.write('\t');
+  Serial.print(stepper_setpoint); 
+  Serial.write('\t');
+  Serial.print(current_step); // stepper_actual
   Serial.write('\n');
   for(int i = 0; i < 2000; i++){
     dc_encoder_loop();
   }
-  /* Force Inductance Optical (4) Temp Ultrasonic Encoder Motor*/
+  /* Mode Force Hall Pot  Encoder Motor */
+}
+
+/* Serial read functions */ 
+uint16_t serial_read_loop(){
+  uint16_t read_val = 0;
+  if(Serial.available() > 0) {
+    Serial.readBytes(inData,3);
+    if(inData[2] == 0) { // if third byte is a new line 
+      read_val = inData[0] << 8; 
+      read_val += inData[1];
+      return read_val;
+    }
+  }
 }
 
 /* Hall effect functions */
-
 uint16_t hall_loop(){
   uint16_t raw_val = analogRead(hall_pin);
   raw_val += analogRead(hall_pin);
@@ -261,96 +202,6 @@ uint16_t fsr_loop(){
 
 /* END FSR functions */
 
-/* Optical functions */
-void optical_setup(){
-  pinMode(optical_S0_pin,OUTPUT);
-  pinMode(optical_S1_pin,OUTPUT);
-  pinMode(optical_S2_pin,OUTPUT);
-  pinMode(optical_S3_pin,OUTPUT);
-  digitalWrite(optical_S0_pin,HIGH);  //100% frequency scaling
-  digitalWrite(optical_S1_pin,HIGH);
-  FreqMeasure.begin();
-}
-
-uint16_t optical_loop_red(){
-  digitalWrite(optical_S2_pin,LOW);
-  digitalWrite(optical_S3_pin,LOW);
-  return optical_get_reading();
-}
-
-uint16_t optical_loop_blue(){
-  digitalWrite(optical_S2_pin,LOW);
-  digitalWrite(optical_S3_pin,HIGH);
-  return optical_get_reading();
-}
-
-uint16_t optical_loop_clear(){
-  digitalWrite(optical_S2_pin,HIGH);
-  digitalWrite(optical_S3_pin,LOW);
-  return optical_get_reading();
-}
-
-uint16_t optical_loop_green(){
-  digitalWrite(optical_S2_pin,HIGH);
-  digitalWrite(optical_S3_pin,HIGH);
-  return optical_get_reading();
-}
-
-uint16_t optical_get_reading(){
-  while(!FreqMeasure.available());
-  //average readings
-  double sum = 0;
-  for(int i = 0; i < 32; i++){
-    sum = sum + FreqMeasure.read();
-  }
-  float frequency = FreqMeasure.countToFrequency(sum/32);
-  return (uint16_t)frequency;
-}
-
-/* END Optical functions */
-
-/* Thermocouple functions */
-
-void thermocouple_setup(){
-  pinMode(TEMP_IN, INPUT);
-}
-
-uint16_t thermocouple_loop(){
-  sensor_value = (float)analogRead(TEMP_IN);
-  sensor_value += (float)analogRead(TEMP_IN);
-  sensor_value += (float)analogRead(TEMP_IN);
-  temp = (sensor_value/3)*k + b;
-  return (uint16_t)temp;
-}
-
-/* END Thermocouple functions */
-
-/* Ultrasonic functions */
-
-void ultrasonic_setup(){
-  pinMode(TRIG_PIN,OUTPUT);
-  pinMode(ECHO_PIN,INPUT);
-}
-
-uint16_t ultrasonic_loop(){
-   long duration, distanceCm, distanceIn;
- 
-  // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
-  digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG_PIN, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIG_PIN, LOW);
-  duration = pulseIn(ECHO_PIN,HIGH);
- 
-  // convert the time into a distance
-  distanceCm = duration / 29.1 / 2 ;
-  distanceIn = duration / 74 / 2;
-  return (uint16_t)distanceCm;
-}
-
-/* END Ultrasonic functions */
-
 /* DC Motor functions */
 
 void dc_motor_setup(){
@@ -367,7 +218,6 @@ void dc_motor_setup(){
 
 void servo_setup(){
   myservo.attach(SERVO_PIN);
-  
 }
 
 // Code from http://playground.arduino.cc/Main/RotaryEncoders#Example1
@@ -436,10 +286,10 @@ int pid_loop(int encoder_count){
   return motor_out;
 }
 
-void update_setpoint(void){
+uint16_t update_setpoint(uint16_t gui_read){
   uint16_t pot_read = analogRead(A4);
   if(op_mode == MODE_DC_GUI_SPEED){
-    Setpoint = 0; //TODO get from gui
+    Setpoint = gui_read; //TODO get from gui
   } else if(op_mode == MODE_DC_GUI_POS){
     Setpoint = 0; //TODO get from gui
   } else if(op_mode == MODE_DC_POT_SPEED){
@@ -449,6 +299,7 @@ void update_setpoint(void){
   } else {
     Setpoint = 0;
   }
+  return pot_read;
 }
 
 void clear_Isum(void){
@@ -506,38 +357,39 @@ void check_mode(void){
 /* END Mode set functions */
 
 /* Servo functions */
-void servo_loop(){
+uint16_t servo_loop(uint16_t gui_read){
   uint16_t force_reading = 0;
   uint16_t force_threshold = 1;
+  uint16_t servo_pos = 0;
   force_reading = fsr_loop();
-
-  if(op_mode == MODE_SERVO_GUI || op_mode == MODE_SERVO_FSR){
+  if(op_mode == MODE_SERVO_FSR){
     if(force_reading > force_threshold){
-      myservo.write(180); 
-    }
-    else{
-      myservo.write(0);
+      servo_pos = 180; 
     }
   }
-  else{
-    myservo.write(0);
-    return;
+  else if(op_mode == MODE_SERVO_GUI){
+    servo_pos = gui_read;
   }
+  myservo.write(servo_pos);
+  return servo_pos; 
 }
 /*END servo function */
 
 /* Stepper functions */
-void update_stepper_setpoint(void){
-  if(op_mode == MODE_STEP_GUI || op_mode == MODE_STEP_HALL){
+uint16_t update_stepper_setpoint(uint16_t gui_read){
+  if(op_mode == MODE_STEP_HALL){
     stepper_setpoint = hall_loop();
+  }
+  else if(op_mode == MODE_STEP_GUI){
+    stepper_setpoint = gui_read; //TODO: input user's value here
   }
   else{
     stepper_setpoint = 0;
   }
+  return stepper_setpoint;
 }
 
-void stepper_loop(){
-  
+uint8_t stepper_loop(){
   if(op_mode == MODE_STEP_GUI || op_mode == MODE_STEP_HALL){
       if(current_step < stepper_setpoint){ // increment one step
         myStepper.step(1); 
@@ -548,6 +400,6 @@ void stepper_loop(){
         current_step--;
       }
   }
-  return;
+  return current_step;
 }
 
