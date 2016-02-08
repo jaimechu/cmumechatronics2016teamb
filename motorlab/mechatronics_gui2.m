@@ -81,7 +81,7 @@ handles.timer = timer('StartDelay', 2, 'ExecutionMode', 'fixedRate', 'Period', 0
 %handles.t = timer( 'Period', 1,'ExecutionMode', 'fixedRate');
 %handles.t.TimerFcn = @(x,y)update_display(hObject, eventdata, handles);
 
-% ================= Code adapted from Pol, 2015 =================
+% ================= Arduino interface Code adapted from Pol, 2015 (18-474 final lab)=================
 % Create array to hold values from Arduino
 num_rows = 1000;
 num_cols = 8;
@@ -122,6 +122,7 @@ hold off;
 % Choose default command line output for mechatronics_gui2
 handles.output = hObject;
 handles.s = s; % save the serial identification
+handles.mode_prev = 0;  %Previously reported mode, to check for mode changes
 
 % Update handles structure
 guidata(hObject, handles);
@@ -153,20 +154,55 @@ s = handles.s;
         %[theta error pwm_val gain_num gain_den]
         %Sometimes data is corrupted, so do try method
         try
-            [mode force hall opticalR opticalB opticalC opticalG temperature ultrasonic dc_location dc_speed dc_pwm dc_setpoint] = strread(tmp,'%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d');
+            [mode, force, hall, pot, dc_location, dc_speed, dc_cmd, dc_setpoint, servo, step_setpoint, step_current] = strread(tmp,'%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d');
         catch
             continue;
         end
         % Print values for debugging:
         %fprintf('force: %d\t hall: %d\t opticalR: %d\t opticalB: %d\t opticalC: %d\t opticalG: %d\t temperature: %d\t ultrasonic: %d\n', force, hall, opticalR, opticalB, opticalC, opticalG, temperature, ultrasonic);
         %disp(tmp)
+        
+        %If mode has changed, motor lists need to be cleared
+        if(mode ~= handles.mode_prev)
+            handles.motor_command_reading = [0 0];
+            handles.motor_actual_reading = [0 0];
+        end
+        handles.mode_prev = mode;
 
-        % Add new values to the end of the current value lists
+        % Add new sensor values to the end of the current value lists
         handles.force_reading = horzcat(handles.force_reading, force);
         handles.hall_reading = horzcat(handles.hall_reading, hall);
-        handles.pot_reading = horzcat(handles.pot_reading,);    %Todo get value from input string
-        handles.motor_command_reading = horzcat(handles.motor_command_reading,);
-        handles.motor_actual_reading = horzcat(handles.motor_actual_reading,);
+        handles.pot_reading = horzcat(handles.pot_reading,pot);    %Todo get value from input string
+        
+        % Add new motor values to the end of the current value lists
+        % Because lists are shared for all motors, the values added depend
+        % on the motor
+        switch(mode)
+            case 0 %MODE_DC_POT_SPEED
+                handles.motor_command_reading = horzcat(handles.motor_command_reading,dc_setpoint);
+                handles.motor_actual_reading = horzcat(handles.motor_actual_reading,dc_speed);
+            case 1 %MODE_DC_POT_POS
+                handles.motor_command_reading = horzcat(handles.motor_command_reading,dc_setpoint);
+                handles.motor_actual_reading = horzcat(handles.motor_actual_reading,dc_location);
+            case 2 %MODE_STEP_HALL
+                handles.motor_command_reading = horzcat(handles.motor_command_reading,step_setpoint);
+                handles.motor_actual_reading = horzcat(handles.motor_actual_reading,step_current);
+            case 3 %MODE_SERVO_FSR
+                handles.motor_command_reading = horzcat(handles.motor_command_reading,servo);
+                handles.motor_actual_reading = horzcat(handles.motor_actual_reading,servo);
+            case 4 %MODE_DC_GUI_SPEED
+                handles.motor_command_reading = horzcat(handles.motor_command_reading,dc_setpoint);
+                handles.motor_actual_reading = horzcat(handles.motor_actual_reading,dc_speed);
+            case 5 %MODE_DC_GUI_POS
+                handles.motor_command_reading = horzcat(handles.motor_command_reading,dc_setpoint);
+                handles.motor_actual_reading = horzcat(handles.motor_actual_reading,dc_location);
+            case 6 %MODE_STEP_GUI
+                handles.motor_command_reading = horzcat(handles.motor_command_reading,step_setpoint);
+                handles.motor_actual_reading = horzcat(handles.motor_actual_reading,step_current);
+            case 7 %MODE_SERVO_GUI
+                handles.motor_command_reading = horzcat(handles.motor_command_reading,servo);
+                handles.motor_actual_reading = horzcat(handles.motor_actual_reading,servo);
+        end
         
         %Plot our new values
         axes(handles.force_plot)
@@ -189,6 +225,77 @@ s = handles.s;
         
         handles.pot_string = sprintf('Potentiometer Reading [V]:\n\t             %.0f',potentiometer);
         set(handles.potentiometer_text, 'String', handles.pot_string); 
+        
+        %Update mode display and disable/enable command input
+        mode_str = '';
+        switch(mode)
+            case 0 %MODE_DC_POT_SPEED
+                mode_str = 'DC_POT_SPEED';
+                %GUI does not command motor, disable command input
+                if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
+                    set(handles.motor_edit, 'Enable', 'off');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'off');
+                end
+            case 1 %MODE_DC_POT_POS
+                mode_str = 'DC_POT_POS';
+                 %GUI does not command motor, disable command input
+               if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
+                    set(handles.motor_edit, 'Enable', 'off');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'off');
+                end
+            case 2 %MODE_STEP_HALL
+                mode_str = 'STEP_HALL';
+                %GUI does not command motor, disable command input
+                if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
+                    set(handles.motor_edit, 'Enable', 'off');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'off');
+                end
+            case 3 %MODE_SERVO_FSR
+                mode_str = 'SERVO_FSR';
+                %GUI does not command motor, disable command input
+                if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
+                    set(handles.motor_edit, 'Enable', 'off');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'off');
+                end
+            case 4 %MODE_DC_GUI_SPEED
+                mode_str = 'DC_GUI_SPEED';
+                %GUI has control of motor, enable command input
+                if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
+                    set(handles.motor_edit, 'Enable', 'on');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'on');
+                end
+            case 5 %MODE_DC_GUI_POS
+                mode_str = 'DC_GUI_POS';
+                %GUI has control of motor, enable command input
+                if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
+                    set(handles.motor_edit, 'Enable', 'on');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'on');
+                end
+            case 6 %MODE_STEP_GUI
+                mode_str = 'STEP_GUI';
+                %GUI has control of motor, enable command input
+                if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
+                    set(handles.motor_edit, 'Enable', 'on');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'on');
+                end
+            case 7 %MODE_SERVO_GUI
+                mode_str = 'SERVO_GUI';
+                %GUI has control of motor, enable command input
+                if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
+                    set(handles.motor_edit, 'Enable', 'on');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'on');
+                end
+        end
+        handles.mode_text_str = sprintf('System Mode:\n\t%s',mode_str);
+        set(handles.modeText,'String',handles.mode_text_str);
          
         %fprintf('done')
         % Update figure
@@ -206,7 +313,7 @@ fprintf('in close');
     end
     delete(handles.timer)   %Delete the timer so callback doesn't execute
     s = handles.s;
-    fclose(s)               %Attempt to close the serial connection
+    fclose(s);              %Attempt to close the serial connection
     delete(hObject);        %Delete the GUI
     delete(instrfindall)    %Close any lingering serial connections
 
