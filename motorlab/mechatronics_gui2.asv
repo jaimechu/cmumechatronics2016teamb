@@ -85,7 +85,7 @@ num_cols = 8;
 Ts = 0.1;   %PIC sends data every Ts seconds
 
 % Set up serial connection
-serial_port_name = '/dev/cu.usbmodem1421'; % CHANGE THIS VALUE TO REFLECT BOARD
+serial_port_name = 'COM19';%'/dev/cu.usbmodem1421'; % CHANGE THIS VALUE TO REFLECT BOARD
 s = serial(serial_port_name);
 % set specific parameters
 s.Baudrate = 9600;
@@ -138,7 +138,7 @@ end
 % uiwait(handles.figure1);
 
 function update_display(hObject, eventdata, hfigure)
-%fprintf('update');
+fprintf('update');
 
 handles = guidata(hfigure); %rename this stand-in variable
 
@@ -149,8 +149,9 @@ s = handles.s;
     while(s.BytesAvailable > 0)
   
         tmp = fgetl(s); % Read text data
+        fprintf('A');
         %[theta error pwm_val gain_num gain_den]
-        [force hall opticalR opticalB opticalC opticalG temperature ultrasonic] = strread(tmp,'%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d');
+        [mode force hall opticalR opticalB opticalC opticalG temperature ultrasonic dc_location dc_speed dc_pwm dc_setpoint] = strread(tmp,'%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d');
         
         % Print values for debugging:
         %fprintf('force: %d\t hall: %d\t opticalR: %d\t opticalB: %d\t opticalC: %d\t opticalG: %d\t temperature: %d\t ultrasonic: %d\n', force, hall, opticalR, opticalB, opticalC, opticalG, temperature, ultrasonic);
