@@ -19,11 +19,10 @@
  */
 #include <FreqMeasure.h>
 #include <Servo.h>
-//#include <Stepper.h>
 
 /* Serial read Macros and Globals */
 char inData[24];
-uint16_t gui_read;
+int16_t gui_read;
 /*END Serial read Macros and Globals */
 
 /* Hall Sensor Macros and Globals */
@@ -69,10 +68,8 @@ int sensorB, sensorD = 0;
 /*Stepper Macros and Globals */
  const int STEPPER_DIR_PIN = 2; 
  const int STEPPER_SPEED_PIN = 3; 
- uint16_t TOTAL_STEPS = 200;
  int16_t current_step = 0; 
  int16_t stepper_setpoint = 0;
-// Stepper myStepper(TOTAL_STEPS, STEPPER_PIN1, STEPPER_PIN2);
 /*END Stepper Macros and Globals */
 
 /* Mode Macros and Globals */
@@ -150,6 +147,8 @@ void loop() {
   Serial.print(stepper_setpoint); 
   Serial.write('\t');
   Serial.print(current_step); // stepper_actual
+  Serial.write('\t');
+  Serial.print(gui_read);
   Serial.write('\n');
   for(int i = 0; i < 1000; i++){
     dc_encoder_loop();
@@ -168,8 +167,8 @@ void serial_read_loop(){
     
     inData[count] = val;
     if(val == 0 && count>=2) { // if third byte is a new line 
-      read_val = inData[count-2] << 8; 
-      read_val += inData[count-1];
+      read_val = inData[count-1] << 8; 
+      read_val += inData[count-2];
       gui_read = read_val;
     }
     count++;
@@ -390,7 +389,7 @@ uint16_t servo_loop(){
 /*END servo function */
 
 /* Stepper functions */
-uint16_t update_stepper_setpoint(){
+int16_t update_stepper_setpoint(){
   if(op_mode == MODE_STEP_HALL){
     stepper_setpoint = hall_loop();
     stepper_setpoint = stepper_setpoint/100;

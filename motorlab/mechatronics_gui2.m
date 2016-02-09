@@ -158,7 +158,7 @@ s = handles.s;
         %[theta error pwm_val gain_num gain_den]
         %Sometimes data is corrupted, so do try method
         try
-            [mode, force, hall, pot, dc_location, dc_speed, dc_cmd, dc_setpoint, servo, step_setpoint, step_current] = strread(tmp,'%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d');
+            [mode, force, hall, pot, dc_location, dc_speed, dc_cmd, dc_setpoint, servo, step_setpoint, step_current, gui_read] = strread(tmp,'%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d');
         catch
             continue;
         end
@@ -458,8 +458,9 @@ function sendButton_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
     get(handles.motor_edit,'String')
     user_command_double = str2double(get(handles.motor_edit,'String'))
-    temp = typecast(int16(user_command_double),'int8')
+    temp = typecast(int16(user_command_double),'uint8')
     unicodestr = native2unicode([temp(1),temp(2),int8(0)]);
+    unicode2native(unicodestr)
     fwrite(handles.s,unicodestr);
     
 %     %Check if user value is actually a 16-bit signed integer
