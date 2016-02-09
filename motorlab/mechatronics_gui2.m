@@ -462,14 +462,17 @@ function sendButton_Callback(hObject, eventdata, handles)
     user_command_double = str2double(get(handles.motor_edit,'String'))
     if(handles.op_mode == 6)
         %User input in degrees, change to steps
-        user_command_double = round(user_command_double);%200/360
+        user_command_double = round(user_command_double);%user_command_double*200/360);%200/360
     elseif(handles.op_mode == 5)
         user_command_double = round(user_command_double*60/360);
     end
     handles.op_mode
+    
     user_command_double
-    temp = typecast(int16(user_command_double),'uint8')
-    unicodestr = native2unicode([temp(1),temp(2),int8(0)]);
+    %temp = typecast(int16(user_command_double),'int8')
+    lsb = cast(bitand(int16(user_command_double),255),'int8')
+    msb = cast(bitsra(int16(user_command_double),8),'int8')
+    unicodestr = native2unicode([lsb,msb,int8(0)]);
     unicode2native(unicodestr)
     fwrite(handles.s,unicodestr);
     

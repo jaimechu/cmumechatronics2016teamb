@@ -396,7 +396,7 @@ int16_t update_stepper_setpoint(){
     stepper_setpoint = stepper_setpoint/100;
   }
   else if(op_mode == MODE_STEP_GUI){
-    stepper_setpoint = gui_read/100; //TODO: input user's value here
+    stepper_setpoint = gui_read; //TODO: input user's value here
   }
   else{
     stepper_setpoint = 0;
