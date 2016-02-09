@@ -123,7 +123,7 @@ hold off;
 handles.output = hObject;
 handles.s = s; % save the serial identification
 handles.mode_prev = 0;  %Previously reported mode, to check for mode changes
-handles.op_mode = 0;
+handles.mode = 0;
 
 % Update handles structure
 guidata(hObject, handles);
@@ -460,14 +460,12 @@ function sendButton_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
     get(handles.motor_edit,'String')
     user_command_double = str2double(get(handles.motor_edit,'String'))
-    if(handles.op_mode == 6)
+    if(handles.mode == 6)
         %User input in degrees, change to steps
-        user_command_double = round(user_command_double);%200/360
-    elseif(handles.op_mode == 5)
-        user_command_double = round(user_command_double*60/360);
+        user_command_double = round(user_command_double*200/360);
+    else if(handles.mode == 5)
+            user_command_double = round(user_command_double*120/360);
     end
-    handles.op_mode
-    user_command_double
     temp = typecast(int16(user_command_double),'uint8')
     unicodestr = native2unicode([temp(1),temp(2),int8(0)]);
     unicode2native(unicodestr)

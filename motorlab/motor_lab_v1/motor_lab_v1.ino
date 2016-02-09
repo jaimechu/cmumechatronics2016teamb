@@ -158,7 +158,7 @@ void loop() {
 
 /* Serial read functions */ 
 void serial_read_loop(){
-  uint16_t read_val = 0;
+  int16_t read_val = 0;
   int val = 0;
   int count = 0; 
   while(Serial.available() > 0) {
@@ -167,8 +167,8 @@ void serial_read_loop(){
     
     inData[count] = val;
     if(val == 0 && count>=2) { // if third byte is a new line 
-      read_val = inData[count-1] << 8; 
-      read_val += inData[count-2];
+      read_val = (int16_t)inData[count-1] << 8; 
+      read_val += (int16_t)inData[count-2];
       gui_read = read_val;
     }
     count++;
@@ -345,6 +345,7 @@ void check_mode(void){
       case MODE_DC_GUI_SPEED:
         op_mode = MODE_DC_GUI_POS;
         clear_Isum();
+        encoder0Pos = 0;
         break;
       case MODE_DC_GUI_POS:
         op_mode = MODE_STEP_GUI;
