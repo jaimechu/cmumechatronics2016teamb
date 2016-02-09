@@ -23,6 +23,7 @@
 
 /* Serial read Macros and Globals */
 char inData[24];
+uint16_t gui_read;
 /*END Serial read Macros and Globals */
 
 /* Hall Sensor Macros and Globals */
@@ -94,7 +95,6 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  uint16_t gui_read = 0;
   uint16_t force_reading = 0;
   uint16_t hall_reading = 0;
   int16_t pot_reading = 0;
@@ -104,22 +104,22 @@ void loop() {
   int16_t stepper_setpoint = 0;
   int16_t current_step = 0;
   
-  gui_read = serial_read_loop(); 
+  serial_read_loop(); 
   dc_encoder_loop();
   force_reading = fsr_loop(); 
   dc_encoder_loop(); 
   hall_reading = hall_loop();
   dc_encoder_loop();
   check_mode();
-  pot_reading =update_setpoint(gui_read);
+  pot_reading =update_setpoint();
   encoder_val = dc_encoder_loop();
   motor_vel = pid_loop(encoder_val);
   dc_encoder_loop();
   dc_motor_loop(motor_vel);
   dc_encoder_loop();
-  servo_pos = servo_loop(gui_read);
+  servo_pos = servo_loop();
   dc_encoder_loop();
-  stepper_setpoint = update_stepper_setpoint(gui_read);
+  stepper_setpoint = update_stepper_setpoint();
   current_step = stepper_loop();
 
   Serial.print(op_mode);
@@ -151,23 +151,31 @@ void loop() {
   Serial.write('\t');
   Serial.print(current_step); // stepper_actual
   Serial.write('\n');
-  for(int i = 0; i < 15000; i++){
+  for(int i = 0; i < 1000; i++){
     dc_encoder_loop();
   }
   /* Mode Force Hall Pot  Encoder Motor */
 }
 
 /* Serial read functions */ 
-uint16_t serial_read_loop(){
+void serial_read_loop(){
   uint16_t read_val = 0;
-  if(Serial.available() > 0) {
-    Serial.readBytes(inData,3);
-    if(inData[2] == 0) { // if third byte is a new line 
-      read_val = inData[0] << 8; 
-      read_val += inData[1];
-      return read_val;
+  int val = 0;
+  int count = 0; 
+  while(Serial.available() > 0) {
+    
+    val = Serial.read();
+    
+    inData[count] = val;
+    if(val == 0 && count>=2) { // if third byte is a new line 
+      read_val = inData[count-2] << 8; 
+      read_val += inData[count-1];
+      gui_read = read_val;
     }
+    count++;
   }
+
+  
 }
 
 /* Hall effect functions */
@@ -292,12 +300,12 @@ int pid_loop(int encoder_count){
   return motor_out;
 }
 
-uint16_t update_setpoint(uint16_t gui_read){
+uint16_t update_setpoint(){
   uint16_t pot_read = analogRead(A4);
   if(op_mode == MODE_DC_GUI_SPEED){
-    Setpoint = gui_read; //TODO get from gui
+    Setpoint = gui_read;
   } else if(op_mode == MODE_DC_GUI_POS){
-    Setpoint = 0; //TODO get from gui
+    Setpoint = gui_read;
   } else if(op_mode == MODE_DC_POT_SPEED){
     Setpoint = map(pot_read,0,1024,-5,5);
   } else if(op_mode == MODE_DC_POT_POS){
@@ -363,14 +371,14 @@ void check_mode(void){
 /* END Mode set functions */
 
 /* Servo functions */
-uint16_t servo_loop(uint16_t gui_read){
+uint16_t servo_loop(){
   uint16_t force_reading = 0;
   uint16_t force_threshold = 1000;
   uint16_t servo_pos = 0;
   force_reading = fsr_loop();
   if(op_mode == MODE_SERVO_FSR){
     if(force_reading > force_threshold){
-      servo_pos = 180; 
+      servo_pos = 150; 
     }
   }
   else if(op_mode == MODE_SERVO_GUI){
@@ -382,7 +390,7 @@ uint16_t servo_loop(uint16_t gui_read){
 /*END servo function */
 
 /* Stepper functions */
-uint16_t update_stepper_setpoint(uint16_t gui_read){
+uint16_t update_stepper_setpoint(){
   if(op_mode == MODE_STEP_HALL){
     stepper_setpoint = hall_loop();
     stepper_setpoint = stepper_setpoint/100;

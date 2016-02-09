@@ -74,7 +74,7 @@ handles.motor_actual_reading = [0 0];
 % Now we set up a timer. 
 % It will wait 2 seconds.
 % Every 0.1 seconds, it will call update_display
-handles.timer = timer('StartDelay', 2, 'ExecutionMode', 'fixedRate', 'Period', 0.1,... 
+handles.timer = timer('StartDelay', 2, 'ExecutionMode', 'fixedRate', 'Period', 0.01,... 
     'TimerFcn', {@update_display, hObject});
 
 % This is a previous test
@@ -150,10 +150,10 @@ s = handles.s;
     while(s.BytesAvailable > 0)%While data is ready to be read
         % Plotting is slow, so the serial buffer gets filled
         % and slows down the gui, so throw out some data
-        for n=1:100
+        for n=1:20
             fgetl(s);
         end
-        tmp = fgetl(s) % Read text data
+        tmp = fgetl(s); % Read text data
         %fprintf(tmp);
         %[theta error pwm_val gain_num gain_den]
         %Sometimes data is corrupted, so do try method
@@ -165,9 +165,6 @@ s = handles.s;
         % Print values for debugging:
         %fprintf('force: %d\t hall: %d\t opticalR: %d\t opticalB: %d\t opticalC: %d\t opticalG: %d\t temperature: %d\t ultrasonic: %d\n', force, hall, opticalR, opticalB, opticalC, opticalG, temperature, ultrasonic);
         %disp(tmp)
-        
-        %Change raw readings into actual units
-        pot = pot*5/1024;
         
         %If mode has changed, motor lists need to be cleared
         if(mode ~= handles.mode_prev)
@@ -212,18 +209,16 @@ s = handles.s;
         end
         
         %Plot our new values
-        hold on
-        plot(handles.motor_command_reading, 'r', 'parent', handles.motor_plot);
-        plot(handles.motor_actual_reading, 'g', 'parent', handles.motor_plot);
-        hold off
-        
         axes(handles.force_plot)
         plot(handles.force_reading, 'parent', handles.force_plot);
         axes(handles.hall_plot)
         plot(handles.hall_reading, 'parent', handles.hall_plot);
         axes(handles.potentiometer_plot)
         plot(handles.pot_reading, 'parent', handles.potentiometer_plot);
-
+        hold on
+        plot(handles.motor_command_reading, 'r', 'parent', handles.motor_plot);
+        plot(handles.motor_actual_reading, 'g', 'parent', handles.motor_plot);
+        hold off
 
         % Display values as floats
         handles.force_string = sprintf('Force Sensor Reading [N]:\n\t      %.2f',force);
@@ -241,67 +236,67 @@ s = handles.s;
             case 0 %MODE_DC_POT_SPEED
                 mode_str = 'DC_POT_SPEED';
                 %GUI does not command motor, disable command input
-%                 if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
-%                     set(handles.motor_edit, 'Enable', 'off');
-%                     set(handles.motor_edit, 'String', '0');
-%                     set(handles.sendButton, 'Enable', 'off');
-%                 end
+                if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
+                    set(handles.motor_edit, 'Enable', 'off');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'off');
+                end
             case 1 %MODE_DC_POT_POS
                 mode_str = 'DC_POT_POS';
                  %GUI does not command motor, disable command input
-%                if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
-%                     set(handles.motor_edit, 'Enable', 'off');
-%                     set(handles.motor_edit, 'String', '0');
-%                     set(handles.sendButton, 'Enable', 'off');
-%                 end
+               if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
+                    set(handles.motor_edit, 'Enable', 'off');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'off');
+                end
             case 2 %MODE_STEP_HALL
                 mode_str = 'STEP_HALL';
                 %GUI does not command motor, disable command input
-%                 if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
-%                     set(handles.motor_edit, 'Enable', 'off');
-%                     set(handles.motor_edit, 'String', '0');
-%                     set(handles.sendButton, 'Enable', 'off');
-%                 end
+                if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
+                    set(handles.motor_edit, 'Enable', 'off');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'off');
+                end
             case 3 %MODE_SERVO_FSR
                 mode_str = 'SERVO_FSR';
                 %GUI does not command motor, disable command input
-%                 if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
-%                     set(handles.motor_edit, 'Enable', 'off');
-%                     set(handles.motor_edit, 'String', '0');
-%                     set(handles.sendButton, 'Enable', 'off');
-%                 end
+                if(strcmp(get(handles.motor_edit, 'Enable'),'off'))
+                    set(handles.motor_edit, 'Enable', 'off');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'off');
+                end
             case 4 %MODE_DC_GUI_SPEED
                 mode_str = 'DC_GUI_SPEED';
                 %GUI has control of motor, enable command input
-%                 if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
-%                     set(handles.motor_edit, 'Enable', 'on');
-%                     set(handles.motor_edit, 'String', '0');
-%                     set(handles.sendButton, 'Enable', 'on');
-%                 end
+                if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
+                    set(handles.motor_edit, 'Enable', 'on');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'on');
+                end
             case 5 %MODE_DC_GUI_POS
                 mode_str = 'DC_GUI_POS';
                 %GUI has control of motor, enable command input
-%                 if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
-%                     set(handles.motor_edit, 'Enable', 'on');
-%                     set(handles.motor_edit, 'String', '0');
-%                     set(handles.sendButton, 'Enable', 'on');
-%                 end
+                if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
+                    set(handles.motor_edit, 'Enable', 'on');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'on');
+                end
             case 6 %MODE_STEP_GUI
                 mode_str = 'STEP_GUI';
                 %GUI has control of motor, enable command input
-%                 if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
-%                     set(handles.motor_edit, 'Enable', 'on');
-%                     set(handles.motor_edit, 'String', '0');
-%                     set(handles.sendButton, 'Enable', 'on');
-%                 end
+                if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
+                    set(handles.motor_edit, 'Enable', 'on');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'on');
+                end
             case 7 %MODE_SERVO_GUI
                 mode_str = 'SERVO_GUI';
                 %GUI has control of motor, enable command input
-%                 if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
-%                     set(handles.motor_edit, 'Enable', 'on');
-%                     set(handles.motor_edit, 'String', '0');
-%                     set(handles.sendButton, 'Enable', 'on');
-%                 end
+                if(strcmp(get(handles.motor_edit, 'Enable'),'on'))
+                    set(handles.motor_edit, 'Enable', 'on');
+                    set(handles.motor_edit, 'String', '0');
+                    set(handles.sendButton, 'Enable', 'on');
+                end
         end
         handles.mode_text_str = sprintf('System Mode:\n\t%s',mode_str);
         set(handles.modeText,'String',handles.mode_text_str);
@@ -456,29 +451,24 @@ function sendButton_Callback(hObject, eventdata, handles)
 % hObject    handle to sendButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-    get(handles.motor_edit,'String')
     user_command_double = str2double(get(handles.motor_edit,'String'))
-    temp = typecast(int16(user_command_double),'int8')
-    unicodestr = native2unicode([temp(1),temp(2),int8(0)]);
-    fwrite(handles.s,unicodestr);
-    
-%     %Check if user value is actually a 16-bit signed integer
-%     if((rem(user_command_double,1)==0) && (abs(user_command_double) < 32768))
-%         s = handles.s;  %Handle to serial port
-%         % If number is less than 256, typecast doesn't give a value for
-%         % msb, so use try catch to take care of small values.
-%         try
-%             [lsb,msb] = typecast(int16(user_command_double),'int8')
-%         catch
-%             lsb = typecast(int16(user_command_double),'int8')
-%             if(lsb >= 0)
-%                 msb = int8(0);
-%             else
-%                 msb = int8(-128);
-%             end
-%         end
-%         fwrite(s,[msb,lsb,'\n']);
-%     else
-%         set(handles.motor_edit,'String','0')
-%     end
+    %Check if user value is actually a 16-bit signed integer
+    if((rem(user_command_double,1)==0) && (abs(user_command_double) < 32768))
+        s = handles.s;  %Handle to serial port
+        % If number is less than 256, typecast doesn't give a value for
+        % msb, so use try catch to take care of small values.
+        try
+            [lsb,msb] = typecast(int16(user_command_double),'int8')
+        catch
+            lsb = typecast(int16(user_command_double),'int8')
+            if(lsb >= 0)
+                msb = int8(0);
+            else
+                msb = int8(-128);
+            end
+        end
+        fwrite(s,[msb,lsb,'\n']);
+    else
+        set(handles.motor_edit,'String','0')
+    end
         
