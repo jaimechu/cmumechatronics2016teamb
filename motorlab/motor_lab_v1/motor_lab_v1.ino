@@ -19,7 +19,7 @@
  */
 #include <FreqMeasure.h>
 #include <Servo.h>
-#include <Stepper.h>
+//#include <Stepper.h>
 
 /* Serial read Macros and Globals */
 char inData[24];
@@ -66,12 +66,12 @@ int sensorB, sensorD = 0;
 /*END Servo Macros and Globals */
 
 /*Stepper Macros and Globals */
- const int STEPPER_PIN1 = 2; 
- const int STEPPER_PIN2 = 3; 
+ const int STEPPER_DIR_PIN = 2; 
+ const int STEPPER_SPEED_PIN = 3; 
  uint16_t TOTAL_STEPS = 200;
- uint8_t current_step = 0; 
- uint16_t stepper_setpoint = 0;
- Stepper myStepper(TOTAL_STEPS, STEPPER_PIN1, STEPPER_PIN2);
+ int16_t current_step = 0; 
+ int16_t stepper_setpoint = 0;
+// Stepper myStepper(TOTAL_STEPS, STEPPER_PIN1, STEPPER_PIN2);
 /*END Stepper Macros and Globals */
 
 /* Mode Macros and Globals */
@@ -88,8 +88,9 @@ void setup() {
   //No pot setup
   dc_motor_setup();
   servo_setup();
-  //No stepper setup
+  stepper_setup();
 }
+
 
 void loop() {
   // put your main code here, to run repeatedly:
@@ -100,8 +101,8 @@ void loop() {
   int16_t encoder_val = 0;
   int16_t motor_vel = 0;
   uint16_t servo_pos = 0; 
-  uint16_t stepper_setpoint = 0;
-  uint8_t current_step = 0;
+  int16_t stepper_setpoint = 0;
+  int16_t current_step = 0;
   
   gui_read = serial_read_loop(); 
   dc_encoder_loop();
@@ -150,7 +151,7 @@ void loop() {
   Serial.write('\t');
   Serial.print(current_step); // stepper_actual
   Serial.write('\n');
-  for(int i = 0; i < 2000; i++){
+  for(int i = 0; i < 10000; i++){
     dc_encoder_loop();
   }
   /* Mode Force Hall Pot  Encoder Motor */
@@ -218,6 +219,11 @@ void dc_motor_setup(){
 
 void servo_setup(){
   myservo.attach(SERVO_PIN);
+}
+
+void stepper_setup(){
+  pinMode(STEPPER_DIR_PIN, OUTPUT);
+  pinMode(STEPPER_SPEED_PIN, OUTPUT);
 }
 
 // Code from http://playground.arduino.cc/Main/RotaryEncoders#Example1
@@ -379,9 +385,10 @@ uint16_t servo_loop(uint16_t gui_read){
 uint16_t update_stepper_setpoint(uint16_t gui_read){
   if(op_mode == MODE_STEP_HALL){
     stepper_setpoint = hall_loop();
+    stepper_setpoint = stepper_setpoint/100;
   }
   else if(op_mode == MODE_STEP_GUI){
-    stepper_setpoint = gui_read; //TODO: input user's value here
+    stepper_setpoint = gui_read/100; //TODO: input user's value here
   }
   else{
     stepper_setpoint = 0;
@@ -389,15 +396,19 @@ uint16_t update_stepper_setpoint(uint16_t gui_read){
   return stepper_setpoint;
 }
 
-uint8_t stepper_loop(){
+int16_t stepper_loop(){
   if(op_mode == MODE_STEP_GUI || op_mode == MODE_STEP_HALL){
       if(current_step < stepper_setpoint){ // increment one step
-        myStepper.step(1); 
+        digitalWrite(STEPPER_DIR_PIN,LOW);
+        digitalWrite(STEPPER_SPEED_PIN,HIGH);
         current_step++;
+        digitalWrite(STEPPER_SPEED_PIN, LOW);
       }
       else if(current_step > stepper_setpoint){ // decrement one step
-        myStepper.step(-1);
+        digitalWrite(STEPPER_DIR_PIN,HIGH);
+        digitalWrite(STEPPER_SPEED_PIN,HIGH);
         current_step--;
+        digitalWrite(STEPPER_SPEED_PIN, LOW);
       }
   }
   return current_step;
