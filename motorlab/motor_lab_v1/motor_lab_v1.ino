@@ -97,7 +97,7 @@ void loop() {
   uint16_t gui_read = 0;
   uint16_t force_reading = 0;
   uint16_t hall_reading = 0;
-  uint16_t pot_reading = 0;
+  int16_t pot_reading = 0;
   int16_t encoder_val = 0;
   int16_t motor_vel = 0;
   uint16_t servo_pos = 0; 
@@ -151,7 +151,7 @@ void loop() {
   Serial.write('\t');
   Serial.print(current_step); // stepper_actual
   Serial.write('\n');
-  for(int i = 0; i < 10000; i++){
+  for(int i = 0; i < 15000; i++){
     dc_encoder_loop();
   }
   /* Mode Force Hall Pot  Encoder Motor */
@@ -365,7 +365,7 @@ void check_mode(void){
 /* Servo functions */
 uint16_t servo_loop(uint16_t gui_read){
   uint16_t force_reading = 0;
-  uint16_t force_threshold = 1;
+  uint16_t force_threshold = 1000;
   uint16_t servo_pos = 0;
   force_reading = fsr_loop();
   if(op_mode == MODE_SERVO_FSR){
