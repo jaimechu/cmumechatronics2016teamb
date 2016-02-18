@@ -56,8 +56,8 @@ Problem Description </h3>
 <b>High Level Requirements</b><br>
 SYS-R1. Device shall accept at least one trash object at a time, with the object minimum size as 2”x2”x1” and maximum size as 9”x6.5”x4”.  Objects are inserted by hand <br>
 SYS-R2. Trash input slot shall be at least 40” from base of device<br>
-SYS-R3. Device volume shall not exceed 42 gallons (5.6 cu. ft)<br>
-SYS-R4. Device shall contain two bins, each with at least 15 gallon (2 cu. ft) storage volume.  <br>
+SYS-R3. Device volume shall not exceed 80 gallons (10.7 cu. ft)<br>
+SYS-R4. Device shall contain two bins, each with at least 10 gallon (2 cu. ft) storage volume.  <br>
 SYS-R5. Device shall classify trash input into four categories. metal, plastic, glass, and other.  Accuracy of classification must be at least 85%.<br>
 SYS-R6. Device shall keep accurate count of classified trash items, and report the count to an untrained user.  <br>
 SYS-R7. Device shall store trash input into two categories. (metal, plastic, glass) and other.  Accuracy of sort/store must be at least 85%.  Other category includes non-rigid plastic with no recycling number, cement, wood, ceramics, clothes, cotton, socks, wool, cardboard, newspaper, books, magazines, and styrofoam.  <br>
@@ -80,21 +80,19 @@ SYS-R13. Device shall compress plastic and aluminum objects, but should not comp
   <br><br>
   <b>User Interface</b> |
   The clearest way to identify clear information was simply to use an LCD screen in order to list how many of each object was sorted. This was a pure design decision in order to make the user interface easier and more apparent. Buttons will also be used in order to have a clear start and reset to the characterization and/or compacting process and an emergency stop button in case there is an emergency. These decisions were based off of other large machinery with similar potential hazards to users.<br> <br>
-  <b>Input</b> | 
-  The infrastructure will be made of 80/20 aluminum to allow for adjustments throughout the semester. There will be two 15 gallon bins at the bottom to store the two categories of sorted trash. Our concept for the input of trash uses a revolving Y-shape that will be actively controlled. The Y shape would rotate to store items at the top or deposit trash into the sensing area. This design would require fewer servos and may save volume, but require more complex parts as well as making sure that parts do not fall through any cracks too early. <br> <br>
-  <b>Sorting</b> | Based off the flow chart below, the different sensors required to accurately sort are listed. Thus, we have decided to include four different sensors: mass sensor, inductance sensor, force gauge/pressure sensor (to be used with the hot punch), and an optical sensor. Each sensor serves a purpose to help distinguish a certain material. The mass sensor would first be used to help eliminate the possibility of plastic bags, pieces of paper, or other common wrapper items. From the three categories of recyclable materials, metal was the easiest to first distinguish with an inductance sensor. Next, the hot punch, which will be a device similar to a soldering iron on a actuator, which will use force to gauge the stress and strain of a material to distinguish between plastic and Styrofoam. Finally, the optical sensor is used to differentiate between glass and ceramics/tiles/concrete/paper. Since glass must be clear, the optical sensor would help detect the difference. <br>
+  <b>Input</b> | The trash input hole is roughly 40” off the ground with a door to ensure the user cannot put their hand into anything dangerous. Under the door are rubber flaps which leads to the first of four sensors in the input section. The rest of the input system is designed like a revolving door with four compartments which allow the trash to move through each of the sensing systems while allowing trash to be inputted at an average rate of one item per three seconds or faster. The revolving door will be actuated by a DC motor to push the trash through each compartment, the last of which includes a hole that will allow the trash to drop into the compacting/storing section depending on what the object has been categorized as. The image below depicts the four compartments with the different potential sensors.
+   <br> 
+     <a href="input.png"><img src="input.png" alt="input" name="input" style="border: 0px solid ;"></a> <br>  <br>
+  <b>Sorting</b> | Based off the flow chart below, the different sensors required to accurately sort are listed. Thus, we have decided to include four different sensors: mass sensor, inductance sensor, force gauge/pressure sensor (to be used with the hot wire), and an optical sensor. Each sensor serves a purpose to help distinguish a certain material. The mass sensor would first be used to help eliminate the possibility of plastic bags, pieces of paper, or other common wrapper items. From the three categories of recyclable materials, metal was the easiest to first distinguish with an inductance sensor. Next, the hot wire, which will be a device similar to a foam cutter on a actuator, which will use force to gauge the stress and strain of a material to distinguish between plastic and Styrofoam. Finally, the optical sensor is used to differentiate between glass and ceramics/tiles/concrete/paper. Since glass must be transparent, the optical sensor would help detect the difference. <br>
   <a href="functional.png"><img src="functional.png" alt="functional" name="functional" style="border: 0px solid ;"></a>
   <br>
   <br>
-  <b>Compacting</b> | Compacting will occur item-by-item based on decisions by the sorting algorithm. All items except glass and low-mass “other” materials (e.g. paper, plastic bags) will be compacted. The compacting assembly accepts items from the revolver input into the sorter and dumps them into either of the two bins.
-<br>
-
-The mass sensors will be placed upstream of the sorter so that low-mass “other” materials are directly sorted without compacting. The inductance sensor will also be upstream of the sorter. The optical sensor can be placed in a cut-out space on the bottom of the sorter; and the light can be mounted vertically above it. The hot punch will require its own secondary actuator and can be mounted on the same piece of aluminum channel as the linear actuator (red), or on the actuator itself.
-Once the mass and inductance tests are completed, and it is determined that the hot punch is required, the linear actuator advances the ram towards the item without compacting it. This secondary actuator then advances the hot punch into the item to perform the force test, and finally recedes. The optical test can be performed concurrently.
-
-<br><br>
-  <a href="compacting.gif"><img src="compacting.gif" alt="compacting" name="compacting" style="border: 0px solid ;"></a> <br>
-If the sorting algorithm decides that the item shall be compacted, the linear actuator will advance the ram further until the item is compacted. The ram will then recede, and the sorter will dump the item in the appropriate bin. If the sorting algorithm decides that the item shall not be compacted (i.e. glass), the ram will recede without compacting, and the sorter will similarly dump the item into the appropriate bin. <br>
+  <b>Compacting</b> | Compacting will be achieved using a high-torque DC motor that is mounted in the chamber below the sensing unit. The motor will be attached to a shaft that supports a plate that will rotate into a fixed wall. This moving portion will also have its own floor component in order to allow for the integration of compacting and dropping using one actuator. Items that are not compacted will drop into the bottom most chamber using this same mechanism. The bottom chamber will house the trash and recycling receptacle and also be able to rotate using a motor that drives a turntable-style setup. The rotation of this bottom segment allows for the simplification of the compacting chamber. The bins in this chamber are designed to be easily removable to improve the consumer experience.
+  <br>
+    <a href="compactot.png"><img src="compactor.png" alt="compactor" name="compactor" style="border: 0px solid ;"></a> <br>  
+ <br>
+ <br>
+ <b>Full System</b> | The image below shows the three sections together. The top segment for sensing, the middle section for compacting, and the bottom two doors is used to access the different bins.
   <a href="full_assembly.png"><img src="full_assembly.png" alt="full_assembly" name="full_assembly" style="border: 0px solid ;"></a> <br>  
   </p>
 
@@ -110,7 +108,7 @@ Based off the design requirements listed above, our team compiled a list of five
 <h3>
 <span aria-hidden="true" class="octicon octicon-link"></span></a>Cyberphysical Architecture </h3> 
 <p> 
-The cyberphysical architecture section will include how the power system and the different subsystems will interact with one another. In our cyberphysical architecture, we have decided to use two microcontrollers because one microcontroller did not offer us enough pins to ensure that we would not overload it. By splitting up the microcontroller, we have the majority of the main sensors on one microcontroller, with the other with auxiliary sensors and components. Each microcontroller will communicate with one another through UART and take either an analog or a digital input for the specified function. <br>
+The cyberphysical architecture section will include how the power system and the different subsystems will interact with one another. In our cyberphysical architecture, we have decided to use two microcontrollers because one microcontroller did not offer us enough pins to ensure that we would not overload it. By splitting up the microcontroller, we have the majority of the main sensors on one microcontroller, with the other with auxiliary sensors and components. Each microcontroller will communicate with one another through UART and take either an analog or a digital input for the specified function. In the image below, the number of pins required are labeled for each input. <br>
 
   <a href="electrical_block_diagram.png"><img src="electrical_block_diagram.png" alt="electrical_block_diagram" name="electrical_block_diagram" style="border: 0px solid ;"></a>
 </p>
@@ -155,33 +153,33 @@ The cyberphysical architecture section will include how the power system and the
                         <td>Mock-up Demo (M)
                         <br/>Sensors Demo (W)</td>
                         <td>Complete motor control lab
-                        <br/>Finalize CAD design</td>
-                        <td>- (Mock-up Demo)
-                        <br/>- (Sensors Demo)</td>
+                        <br/>Continue working on CAD design</td>
+                        <td>Sascha (Mock-up Demo)
+                        <br/>Nishant (Sensors Demo)</td>
                     </tr>
                     <tr>
                         <td>5</td>
                         <td>8-Feb</td>
                         <td>Motor Control Demo (W)</td>
                         <td>Esnure website is updated 
-                        <br/>Begin build of circuit
-                        <br/>Begin fabrication of frame</td>
-                        <td>-</td>
+                        <br/>Begin sensor testing
+                        <br/>Consider all physical models</td>
+                        <td>Jaime</td>
                     </tr>
                     <tr>
                         <td>6</td>
                         <td>15-Feb</td>
                         <td>System Demo #1 (W)
                         <br/>Website Check (F)</td>
-                        <td>Continue fabrication
-                        <br/>Continue circuit testing</td>
-                        <td>-</td>
+                        <td>Continue working on CAD design 
+                        <br/>Continue sensor testing</td>
+                        <td>Patricia</td>
                     </tr>
                     <tr>
                         <td>7</td>
                         <td>22-Feb</td>
                         <td>System Demo #2 (W)</td>
-                        <td>Complete prototype </td>
+                        <td>Finalize CAD model and begin BOM</td>
                         <td>-</td>
                     </tr>
                     <tr>
@@ -189,7 +187,7 @@ The cyberphysical architecture section will include how the power system and the
                         <td>29-Feb</td>
                         <td>Design Presentation (M)
                           <br>Peer evaluation #1 (Th)</td>
-                        <td>Ensure prototype is functional</td>
+                        <td>Begin assembly of prototype</td>
                         <td>-</td>
                     </tr>
                     <tr>
@@ -201,14 +199,14 @@ The cyberphysical architecture section will include how the power system and the
                         <td>10</td>
                         <td>14-Mar</td>
                         <td>System Demo #3 (W)</td>
-                        <td>Finish up PCB traces</td>
+                        <td>Begin up PCB traces</td>
                         <td>-</td>
                     </tr>
                     <tr>
                         <td>11</td>
                         <td>21-Mar</td>
                         <td>System Demo #4 (W)</td>
-                        <td>Test system</td>
+                        <td>Test physical system</td>
                         <td>-</td>
                     </tr>
                     <tr>
