@@ -22,8 +22,8 @@
 
 /* SPI Macros for CS */
 #define SPI_BUF_SIZE 8
-#define SPI_CS_ASSERT	(P3OUT &= ~BIT7)
-#define SPI_CS_DEASSERT (P3OUT |= BIT7)
+#define SPI_CS_ASSERT	(P2OUT &= ~BIT5)
+#define SPI_CS_DEASSERT (P2OUT |= BIT5)
 #define SPI_TXINT_ENABLE        (IE2 |= UCB0TXIE)
 #define SPI_TXINT_DISABLE       (IE2 &= ~UCB0TXIE)
 #define SPI_RXINT_ENABLE        (IE2 |= UCB0RXIE)

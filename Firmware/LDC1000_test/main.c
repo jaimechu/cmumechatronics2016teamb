@@ -62,6 +62,8 @@ int main(void) {
     setup_uart();
     __enable_interrupt();
     uint8_t resp = 0;
+    volatile uint16_t prox_data = 0;
+    volatile uint8_t buf[16];
     ldc_setup();
 
 	while(1){
@@ -69,7 +71,13 @@ int main(void) {
 		if(resp != 0x80){
 			P1OUT |= BIT0;
 		}
-		ldc_get_proximity();
+		ldc_read_reg_multiple(0x00,buf,6);
+		ldc_read_reg_multiple(0x0A,buf,2);
+		ldc_read_reg_multiple(0x20,buf,6);
+		prox_data = ldc_get_proximity();
+		if(!(P2IN & BIT4)){//INTB
+			ldc_get_proximity();
+		}
 	}
 }
 
@@ -98,6 +106,9 @@ void ldc_write_reg(uint8_t reg_addr, uint8_t data){
 	init_SPI_transac(buf, 2);
 	while(!is_spi_rx_ready());
 	end_SPI_transac();
+	//for debug
+	volatile uint8_t temp = 0;
+	temp = ldc_read_reg(0x05);
 	return;
 }
 
@@ -109,19 +120,27 @@ void ldc_setup(void){
 		P1OUT |= BIT0;
 		while(1);
 	}
+	volatile uint8_t readback = 0;
+	//Setup in standby mode
+	ldc_write_reg(0x0B,0);
 	//Write Rp max/min values
 	ldc_write_reg(0x01,0x00);	//RP_MAX
 	ldc_write_reg(0x02,0x3f);	//RP_MIN
 	//Watchdog frequency
-	ldc_write_reg(0x03,179);
+	ldc_write_reg(0x03,25);//179
 	//Configuration
-	ldc_write_reg(0x04,BIT4|BIT1|BIT0);	//Amplitude=4V, Response time = 384
+	ldc_write_reg(0x04,BIT4|BIT2|BIT1|BIT0);	//Amplitude=4V, Response time = 384
 	//Clock configuration
-	ldc_write_reg(0x05,BIT1|BIT0);	//Enable crystal
+	ldc_write_reg(0x05,BIT1);	//Enable crystal
 	//INTB configuration
 	ldc_write_reg(0x0A,BIT2);	//INTB indicates data ready
+
+	//check
+	readback = ldc_read_reg(0x05);
 	//Power configuration
 	ldc_write_reg(0x0B,BIT0);	//Active mode
+
+	readback = ldc_read_reg(0x05);
 	return;
 }
 

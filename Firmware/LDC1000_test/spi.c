@@ -64,8 +64,8 @@ void USCIB0_SPI_setup(uint8_t idle, uint8_t edge){
 	P1SEL |= BIT5 | BIT6 | BIT7;
 	P1SEL2 |= BIT5 | BIT6 | BIT7;
 
-	//CS on P3.7, set output high (disabled)
-	P3DIR |= BIT7;
+	//CS on P2.5, set output high (disabled)
+	P2DIR |= BIT5;
 	SPI_CS_DEASSERT;
 
 	UCB0CTL1 &= ~UCSWRST;	//Release USCI from Reset
