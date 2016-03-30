@@ -14,6 +14,7 @@
 #include "utils.h"
 #include "clock_f5.h"
 #include "dbg_uart_uscia0.h"
+#include "ldc_spi_uscib0.h"
 
 
 /** Debug task macros and globals **/
@@ -435,8 +436,8 @@ void adc_setup(void){
 	P5SEL |= BIT0;
 	P7SEL |= BIT0 + BIT1 + BIT2 + BIT3;
 	//Setup ADC12
-	ADC12CTL0 = ADC12SHT1_0 +	//1024 ADCLK cycles for sampling
-				ADC12SHT0_0 +
+	ADC12CTL0 = ADC12SHT1_5 +	//96 ADCLK cycles for sampling (775Hz sequence rate)
+				ADC12SHT0_5 +
 				ADC12REF2_5V +	//2.5V reference
 				ADC12REFON +	//Reference on
 				ADC12MSC + 		//Trigger sequential conversions automatically
@@ -724,6 +725,66 @@ void debug_task(void){
 			//>mon 6VA
 			response_size = print_mon_analog_value(monitor_data.vsense_6VA, response_buf);
 			dbg_uart_send_string(response_buf,response_size);
+		} else if((strncmp(debug_cmd_buf,"opt",3)==0) && (debug_cmd_buf_ptr == 4)){
+			//>opt<number>
+			uint16_t value = 0;
+			switch(debug_cmd_buf[4]){
+			case '0':
+				value = adc_output_buffer[11];
+				break;
+			case '1':
+				value = adc_output_buffer[12];
+				break;
+			case '2':
+				value = adc_output_buffer[13];
+				break;
+			case '3':
+				value = adc_output_buffer[14];
+				break;
+			case '4':
+				value = adc_output_buffer[15];
+				break;
+			case '5':
+				value = adc_output_buffer[16];
+				break;
+			case '6':
+				value = adc_output_buffer[17];
+				break;
+			case '7':
+				value = adc_output_buffer[18];
+				break;
+			}
+			response_buf[0] = '0';
+			response_buf[1] = 'x';
+			hex2ascii_int(value, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+			response_size = 6;
+			dbg_uart_send_string(response_buf,response_size);
+		} else if((strncmp(debug_cmd_buf,"opt",3)==0) && (debug_cmd_buf_ptr == 3)){
+			//>opt
+			uint16_t sum = 0;
+			sum += adc_output_buffer[11];
+			sum += adc_output_buffer[12];
+			sum += adc_output_buffer[13];
+			sum += adc_output_buffer[14];
+			sum += adc_output_buffer[15];
+			sum += adc_output_buffer[16];
+			sum += adc_output_buffer[17];
+			sum += adc_output_buffer[18];
+			response_buf[0] = '0';
+			response_buf[1] = 'x';
+			hex2ascii_int(sum, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+			response_size = 6;
+			dbg_uart_send_string(response_buf,response_size);
+		} else if((strncmp(debug_cmd_buf,"optall",6)==0) && (debug_cmd_buf_ptr == 6)){
+			//>optall
+			uint8_t i = 0;
+			for(i= 11; i <= 18; i++){
+				response_buf[0] = '0';
+				response_buf[1] = 'x';
+				hex2ascii_int(adc_output_buffer[i], &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+				response_size = 6;
+				dbg_uart_send_string(response_buf,response_size);
+			}
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}

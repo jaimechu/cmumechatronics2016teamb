@@ -1,10 +1,10 @@
 ******************************************************************************
                   MSP430 Linker PC v4.4.3                      
 ******************************************************************************
->> Linked Tue Mar 29 22:34:16 2016
+>> Linked Wed Mar 30 12:50:29 2016
 
 OUTPUT FILE NAME:   <MainController_v1a.out>
-ENTRY POINT SYMBOL: "_c_int00_noargs_noexit"  address: 00009360
+ENTRY POINT SYMBOL: "_c_int00_noargs_noexit"  address: 00009588
 
 
 MEMORY CONFIGURATION
@@ -20,7 +20,7 @@ MEMORY CONFIGURATION
   INFOA                 00001980   00000080  00000000  00000080  RWIX
   USBRAM                00001c00   00000800  00000000  00000800  RWIX
   RAM                   00002400   00001800  000003f4  0000140c  RWIX
-  FLASH                 00008000   00007f80  00001554  00006a2c  RWIX
+  FLASH                 00008000   00007f80  00001788  000067f8  RWIX
   INT00                 0000ff80   00000002  00000000  00000002  RWIX
   INT01                 0000ff82   00000002  00000000  00000002  RWIX
   INT02                 0000ff84   00000002  00000000  00000002  RWIX
@@ -109,72 +109,72 @@ section   page    origin      length       input sections
                   00003b60    00000002     rts430x_lc_sd_eabi.lib : boot.obj (.stack)
                   00003b62    0000009e     --HOLE--
 
-.text      0    00008000    0000141e     
-                  00008000    00000564     main.obj (.text:debug_task)
-                  00008564    000001a0     main.obj (.text:adc_task)
-                  00008704    0000015c     main.obj (.text:_isr:ADC12_ISR)
-                  00008860    000000e2     utils.obj (.text:error_dump)
-                  00008942    000000e2     main.obj (.text:reset_isr)
-                  00008a24    000000e2     utils.obj (.text:warning_dump)
-                  00008b06    000000d6     rts430x_lc_sd_eabi.lib : copy_decompress_rle.obj (.text:__TI_decompress_rle_core)
-                  00008bdc    000000b8     utils.obj (.text:hex2ascii_int)
-                  00008c94    000000a8     utils.obj (.text:print_mon_analog_value)
-                  00008d3c    00000080     rts430x_lc_sd_eabi.lib : autoinit_wdt.obj (.text:_auto_init_hold_wdt)
-                  00008dbc    00000078     main.obj (.text:_isr:USCIA0_ISR)
-                  00008e34    0000005c     main.obj (.text:_isr:unmi_isr)
-                  00008e90    00000056     utils.obj (.text:hex2ascii_byte)
-                  00008ee6    0000004e     clock_f5.obj (.text:SetVCoreUp)
-                  00008f34    0000004c     main.obj (.text:main)
-                  00008f80    0000004c     clock_f5.obj (.text:setup_clock)
-                  00008fcc    00000044     dbg_uart_uscia0.obj (.text:dbg_uart_send_string)
-                  00009010    00000040     rts430x_lc_sd_eabi.lib : cpy_util.obj (.text:__memcpy_far)
-                  00009050    0000003e                            : copy_zero_init.obj (.text:decompress:ZI:__TI_zero_init)
-                  0000908e    0000003c     utils.obj (.text:clear_warnings)
-                  000090ca    0000003c     rts430x_lc_sd_eabi.lib : copy_decompress_none.obj (.text:decompress:none:__TI_decompress_none)
-                  00009106    00000038     utils.obj (.text:clear_errors)
-                  0000913e    00000038     utils.obj (.text:issue_warning)
-                  00009176    00000034     main.obj (.text:adc_setup)
-                  000091aa    0000002e     utils.obj (.text:issue_error)
-                  000091d8    0000002c     dbg_uart_uscia0.obj (.text:dbg_uart_send_byte)
-                  00009204    00000028     dbg_uart_uscia0.obj (.text:setup_dbg_uart)
-                  0000922c    00000024     utils.obj (.text:strncmp)
-                  00009250    00000022     utils.obj (.text:P1_get)
-                  00009272    00000022     utils.obj (.text:P2_get)
-                  00009294    00000022     utils.obj (.text:P3_get)
-                  000092b6    00000022     utils.obj (.text:P4_get)
-                  000092d8    00000022     utils.obj (.text:P5_get)
-                  000092fa    00000022     utils.obj (.text:P6_get)
-                  0000931c    00000022     utils.obj (.text:P7_get)
-                  0000933e    00000022     utils.obj (.text:P8_get)
-                  00009360    0000001a     rts430x_lc_sd_eabi.lib : boot_special.obj (.text:_isr:_c_int00_noargs_noexit)
-                  0000937a    0000001a     dbg_uart_uscia0.obj (.text:dbg_uart_get_byte)
-                  00009394    00000016     rts430x_lc_sd_eabi.lib : mult16_f5hw.obj (.text)
-                  000093aa    0000000e                            : copy_decompress_rle.obj (.text:decompress:rle24:__TI_decompress_rle24)
-                  000093b8    0000000e     dbg_uart_uscia0.obj (.text:is_dbg_uart_rx_data_ready)
-                  000093c6    00000008     utils.obj (.text:led_P5_6_off)
-                  000093ce    00000008     utils.obj (.text:led_P5_6_on)
-                  000093d6    00000008     utils.obj (.text:led_P7_7_off)
-                  000093de    00000008     utils.obj (.text:led_P7_7_on)
-                  000093e6    00000006     rts430x_lc_sd_eabi.lib : isr_trap.obj (.text:_isr:__TI_ISR_TRAP)
-                  000093ec    00000006     dbg_uart_uscia0.obj (.text:disable_dbg_uart_txint)
-                  000093f2    00000006     dbg_uart_uscia0.obj (.text:enable_dbg_uart_txint)
-                  000093f8    00000006     utils.obj (.text:is_error)
-                  000093fe    00000006     utils.obj (.text:led_P1_0_off)
-                  00009404    00000006     utils.obj (.text:led_P1_0_on)
-                  0000940a    00000006     utils.obj (.text:led_P2_2_off)
-                  00009410    00000006     utils.obj (.text:led_P2_2_on)
-                  00009416    00000004     rts430x_lc_sd_eabi.lib : pre_init.obj (.text:_system_pre_init)
-                  0000941a    00000004                            : exit.obj (.text:abort)
+.text      0    00008000    00001646     
+                  00008000    0000078c     main.obj (.text:debug_task)
+                  0000878c    000001a0     main.obj (.text:adc_task)
+                  0000892c    0000015c     main.obj (.text:_isr:ADC12_ISR)
+                  00008a88    000000e2     utils.obj (.text:error_dump)
+                  00008b6a    000000e2     main.obj (.text:reset_isr)
+                  00008c4c    000000e2     utils.obj (.text:warning_dump)
+                  00008d2e    000000d6     rts430x_lc_sd_eabi.lib : copy_decompress_rle.obj (.text:__TI_decompress_rle_core)
+                  00008e04    000000b8     utils.obj (.text:hex2ascii_int)
+                  00008ebc    000000a8     utils.obj (.text:print_mon_analog_value)
+                  00008f64    00000080     rts430x_lc_sd_eabi.lib : autoinit_wdt.obj (.text:_auto_init_hold_wdt)
+                  00008fe4    00000078     main.obj (.text:_isr:USCIA0_ISR)
+                  0000905c    0000005c     main.obj (.text:_isr:unmi_isr)
+                  000090b8    00000056     utils.obj (.text:hex2ascii_byte)
+                  0000910e    0000004e     clock_f5.obj (.text:SetVCoreUp)
+                  0000915c    0000004c     main.obj (.text:main)
+                  000091a8    0000004c     clock_f5.obj (.text:setup_clock)
+                  000091f4    00000044     dbg_uart_uscia0.obj (.text:dbg_uart_send_string)
+                  00009238    00000040     rts430x_lc_sd_eabi.lib : cpy_util.obj (.text:__memcpy_far)
+                  00009278    0000003e                            : copy_zero_init.obj (.text:decompress:ZI:__TI_zero_init)
+                  000092b6    0000003c     utils.obj (.text:clear_warnings)
+                  000092f2    0000003c     rts430x_lc_sd_eabi.lib : copy_decompress_none.obj (.text:decompress:none:__TI_decompress_none)
+                  0000932e    00000038     utils.obj (.text:clear_errors)
+                  00009366    00000038     utils.obj (.text:issue_warning)
+                  0000939e    00000034     main.obj (.text:adc_setup)
+                  000093d2    0000002e     utils.obj (.text:issue_error)
+                  00009400    0000002c     dbg_uart_uscia0.obj (.text:dbg_uart_send_byte)
+                  0000942c    00000028     dbg_uart_uscia0.obj (.text:setup_dbg_uart)
+                  00009454    00000024     utils.obj (.text:strncmp)
+                  00009478    00000022     utils.obj (.text:P1_get)
+                  0000949a    00000022     utils.obj (.text:P2_get)
+                  000094bc    00000022     utils.obj (.text:P3_get)
+                  000094de    00000022     utils.obj (.text:P4_get)
+                  00009500    00000022     utils.obj (.text:P5_get)
+                  00009522    00000022     utils.obj (.text:P6_get)
+                  00009544    00000022     utils.obj (.text:P7_get)
+                  00009566    00000022     utils.obj (.text:P8_get)
+                  00009588    0000001a     rts430x_lc_sd_eabi.lib : boot_special.obj (.text:_isr:_c_int00_noargs_noexit)
+                  000095a2    0000001a     dbg_uart_uscia0.obj (.text:dbg_uart_get_byte)
+                  000095bc    00000016     rts430x_lc_sd_eabi.lib : mult16_f5hw.obj (.text)
+                  000095d2    0000000e                            : copy_decompress_rle.obj (.text:decompress:rle24:__TI_decompress_rle24)
+                  000095e0    0000000e     dbg_uart_uscia0.obj (.text:is_dbg_uart_rx_data_ready)
+                  000095ee    00000008     utils.obj (.text:led_P5_6_off)
+                  000095f6    00000008     utils.obj (.text:led_P5_6_on)
+                  000095fe    00000008     utils.obj (.text:led_P7_7_off)
+                  00009606    00000008     utils.obj (.text:led_P7_7_on)
+                  0000960e    00000006     rts430x_lc_sd_eabi.lib : isr_trap.obj (.text:_isr:__TI_ISR_TRAP)
+                  00009614    00000006     dbg_uart_uscia0.obj (.text:disable_dbg_uart_txint)
+                  0000961a    00000006     dbg_uart_uscia0.obj (.text:enable_dbg_uart_txint)
+                  00009620    00000006     utils.obj (.text:is_error)
+                  00009626    00000006     utils.obj (.text:led_P1_0_off)
+                  0000962c    00000006     utils.obj (.text:led_P1_0_on)
+                  00009632    00000006     utils.obj (.text:led_P2_2_off)
+                  00009638    00000006     utils.obj (.text:led_P2_2_on)
+                  0000963e    00000004     rts430x_lc_sd_eabi.lib : pre_init.obj (.text:_system_pre_init)
+                  00009642    00000004                            : exit.obj (.text:abort)
 
-.const     0    0000941e    00000108     
-                  0000941e    00000108     main.obj (.const:.string)
+.const     0    00009646    00000114     
+                  00009646    00000114     main.obj (.const:.string)
 
-.cinit     0    00009526    0000002e     
-                  00009526    0000000c     (__TI_handler_table)
-                  00009532    0000000b     (.cinit..data.load) [load image, compression = rle]
-                  0000953d    00000001     --HOLE-- [fill = 0]
-                  0000953e    00000006     (.cinit..bss.load) [load image, compression = zero_init]
-                  00009544    00000010     (__TI_cinit_table)
+.cinit     0    0000975a    0000002e     
+                  0000975a    0000000c     (__TI_handler_table)
+                  00009766    0000000b     (.cinit..data.load) [load image, compression = rle]
+                  00009771    00000001     --HOLE-- [fill = 0]
+                  00009772    00000006     (.cinit..bss.load) [load image, compression = zero_init]
+                  00009778    00000010     (__TI_cinit_table)
 
 .init_array 
 *          0    00008000    00000000     UNINITIALIZED
@@ -262,14 +262,14 @@ SYSNMI     0    0000fffc    00000002
 
 LINKER GENERATED COPY TABLES
 
-__TI_cinit_table @ 00009544 records: 2, size/record: 8, table size: 16
-	.data: load addr=00009532, load size=0000000b bytes, run addr=00002400, run size=00000334 bytes, compression=rle
-	.bss: load addr=0000953e, load size=00000006 bytes, run addr=00002734, run size=00000020 bytes, compression=zero_init
+__TI_cinit_table @ 00009778 records: 2, size/record: 8, table size: 16
+	.data: load addr=00009766, load size=0000000b bytes, run addr=00002400, run size=00000334 bytes, compression=rle
+	.bss: load addr=00009772, load size=00000006 bytes, run addr=00002734, run size=00000020 bytes, compression=zero_init
 
 
 LINKER GENERATED HANDLER TABLE
 
-__TI_handler_table @ 00009526 records: 3, size/record: 4, table size: 12
+__TI_handler_table @ 0000975a records: 3, size/record: 4, table size: 12
 	index: 0, handler: __TI_zero_init
 	index: 1, handler: __TI_decompress_rle24
 	index: 2, handler: __TI_decompress_none
@@ -361,8 +361,8 @@ address   name
 00000732  ADC12MEM9                
 00000733  ADC12MEM9_H              
 00000732  ADC12MEM9_L              
-00008704  ADC12_ISR                
-0000941a  C$$EXIT                  
+0000892c  ADC12_ISR                
+00009642  C$$EXIT                  
 000008c0  CBCTL0                   
 000008c1  CBCTL0_H                 
 000008c0  CBCTL0_L                 
@@ -498,10 +498,10 @@ address   name
 000004c9  OP2_H                    
 000004c8  OP2_L                    
 0000020e  P1IV                     
-00009250  P1_get                   
+00009478  P1_get                   
 0000021e  P2IV                     
-00009272  P2_get                   
-00009294  P3_get                   
+0000949a  P2_get                   
+000094bc  P3_get                   
 000001e0  P4MAP01                  
 000001e1  P4MAP01_H                
 000001e0  P4MAP01_L                
@@ -514,11 +514,11 @@ address   name
 000001e6  P4MAP67                  
 000001e7  P4MAP67_H                
 000001e6  P4MAP67_L                
-000092b6  P4_get                   
-000092d8  P5_get                   
-000092fa  P6_get                   
-0000931c  P7_get                   
-0000933e  P8_get                   
+000094de  P4_get                   
+00009500  P5_get                   
+00009522  P6_get                   
+00009544  P7_get                   
+00009566  P8_get                   
 00000204  PADIR                    
 00000205  PADIR_H                  
 00000204  PADIR_L                  
@@ -1035,21 +1035,21 @@ address   name
 00000932  USBVECINT                
 00000933  USBVECINT_H              
 00000932  USBVECINT_L              
-00008dbc  USCIA0_ISR               
+00008fe4  USCIA0_ISR               
 0000015c  WDTCTL                   
 0000015d  WDTCTL_H                 
 0000015c  WDTCTL_L                 
 00003c00  __STACK_END              
 000000a0  __STACK_SIZE             
-00009544  __TI_CINIT_Base          
-00009554  __TI_CINIT_Limit         
-00009526  __TI_Handler_Table_Base  
-00009532  __TI_Handler_Table_Limit 
+00009778  __TI_CINIT_Base          
+00009788  __TI_CINIT_Limit         
+0000975a  __TI_Handler_Table_Base  
+00009766  __TI_Handler_Table_Limit 
 UNDEFED   __TI_INITARRAY_Base      
 UNDEFED   __TI_INITARRAY_Limit     
-000093e6  __TI_ISR_TRAP            
-000090ca  __TI_decompress_none     
-000093aa  __TI_decompress_rle24    
+0000960e  __TI_ISR_TRAP            
+000092f2  __TI_decompress_none     
+000095d2  __TI_decompress_rle24    
 0000ffd2  __TI_int41               
 0000ffd4  __TI_int42               
 0000ffd6  __TI_int43               
@@ -1072,17 +1072,17 @@ UNDEFED   __TI_INITARRAY_Limit
 0000fff8  __TI_int60               
 0000fffa  __TI_int61               
 0000fffc  __TI_int62               
-00009050  __TI_zero_init           
+00009278  __TI_zero_init           
 ffffffff  __binit__                
 ffffffff  __c_args__               
-00009010  __memcpy_far             
-00009394  __mspabi_mpyi_f5hw       
-00008d3c  _auto_init_hold_wdt      
-00009360  _c_int00_noargs_noexit   
+00009238  __memcpy_far             
+000095bc  __mspabi_mpyi_f5hw       
+00008f64  _auto_init_hold_wdt      
+00009588  _c_int00_noargs_noexit   
 0000fffe  _reset_vector            
 00003b60  _stack                   
-00009416  _system_pre_init         
-0000941a  abort                    
+0000963e  _system_pre_init         
+00009642  abort                    
 000026d8  adc12_int_done_flag      
 000026d6  adc_current_state        
 000026dc  adc_data_ready_flags     
@@ -1090,50 +1090,50 @@ ffffffff  __c_args__
 000025f8  adc_internal_buffer      
 0000264e  adc_output_buffer        
 000026da  adc_seq2                 
-00009176  adc_setup                
-00008564  adc_task                 
+0000939e  adc_setup                
+0000878c  adc_task                 
 ffffffff  binit                    
-00009106  clear_errors             
-0000908e  clear_warnings           
-0000937a  dbg_uart_get_byte        
-000091d8  dbg_uart_send_byte       
-00008fcc  dbg_uart_send_string     
+0000932e  clear_errors             
+000092b6  clear_warnings           
+000095a2  dbg_uart_get_byte        
+00009400  dbg_uart_send_byte       
+000091f4  dbg_uart_send_string     
 00002734  debug_cmd_buf            
 000026a4  debug_cmd_buf_ptr        
 00008000  debug_task               
-000093ec  disable_dbg_uart_txint   
-000093f2  enable_dbg_uart_txint    
+00009614  disable_dbg_uart_txint   
+0000961a  enable_dbg_uart_txint    
 000026a8  err_flag                 
 00002720  err_log                  
 000026a7  err_log_ptr              
-00008860  error_dump               
-00008e90  hex2ascii_byte           
-00008bdc  hex2ascii_int            
-000093b8  is_dbg_uart_rx_data_ready
-000093f8  is_error                 
-000091aa  issue_error              
-0000913e  issue_warning            
-000093fe  led_P1_0_off             
-00009404  led_P1_0_on              
-0000940a  led_P2_2_off             
-00009410  led_P2_2_on              
-000093c6  led_P5_6_off             
-000093ce  led_P5_6_on              
-000093d6  led_P7_7_off             
-000093de  led_P7_7_on              
-00008f34  main                     
+00008a88  error_dump               
+000090b8  hex2ascii_byte           
+00008e04  hex2ascii_int            
+000095e0  is_dbg_uart_rx_data_ready
+00009620  is_error                 
+000093d2  issue_error              
+00009366  issue_warning            
+00009626  led_P1_0_off             
+0000962c  led_P1_0_on              
+00009632  led_P2_2_off             
+00009638  led_P2_2_on              
+000095ee  led_P5_6_off             
+000095f6  led_P5_6_on              
+000095fe  led_P7_7_off             
+00009606  led_P7_7_on              
+0000915c  main                     
 000026d4  monCurrState             
 000026aa  monitor_data             
-00008c94  print_mon_analog_value   
-00008942  reset_isr                
-00008f80  setup_clock              
-00009204  setup_dbg_uart           
-0000922c  strncmp                  
-00008e34  unmi_isr                 
+00008ebc  print_mon_analog_value   
+00008b6a  reset_isr                
+000091a8  setup_clock              
+0000942c  setup_dbg_uart           
+00009454  strncmp                  
+0000905c  unmi_isr                 
 000026a6  warn_flag                
 00002708  warn_log                 
 000026a5  warn_log_ptr             
-00008a24  warning_dump             
+00008c4c  warning_dump             
 
 
 GLOBAL SYMBOLS: SORTED BY Symbol Address 
@@ -1910,63 +1910,63 @@ address   name
 00003b60  _stack                   
 00003c00  __STACK_END              
 00008000  debug_task               
-00008564  adc_task                 
-00008704  ADC12_ISR                
-00008860  error_dump               
-00008942  reset_isr                
-00008a24  warning_dump             
-00008bdc  hex2ascii_int            
-00008c94  print_mon_analog_value   
-00008d3c  _auto_init_hold_wdt      
-00008dbc  USCIA0_ISR               
-00008e34  unmi_isr                 
-00008e90  hex2ascii_byte           
-00008f34  main                     
-00008f80  setup_clock              
-00008fcc  dbg_uart_send_string     
-00009010  __memcpy_far             
-00009050  __TI_zero_init           
-0000908e  clear_warnings           
-000090ca  __TI_decompress_none     
-00009106  clear_errors             
-0000913e  issue_warning            
-00009176  adc_setup                
-000091aa  issue_error              
-000091d8  dbg_uart_send_byte       
-00009204  setup_dbg_uart           
-0000922c  strncmp                  
-00009250  P1_get                   
-00009272  P2_get                   
-00009294  P3_get                   
-000092b6  P4_get                   
-000092d8  P5_get                   
-000092fa  P6_get                   
-0000931c  P7_get                   
-0000933e  P8_get                   
-00009360  _c_int00_noargs_noexit   
-0000937a  dbg_uart_get_byte        
-00009394  __mspabi_mpyi_f5hw       
-000093aa  __TI_decompress_rle24    
-000093b8  is_dbg_uart_rx_data_ready
-000093c6  led_P5_6_off             
-000093ce  led_P5_6_on              
-000093d6  led_P7_7_off             
-000093de  led_P7_7_on              
-000093e6  __TI_ISR_TRAP            
-000093ec  disable_dbg_uart_txint   
-000093f2  enable_dbg_uart_txint    
-000093f8  is_error                 
-000093fe  led_P1_0_off             
-00009404  led_P1_0_on              
-0000940a  led_P2_2_off             
-00009410  led_P2_2_on              
-00009416  _system_pre_init         
-0000941a  C$$EXIT                  
-0000941a  abort                    
-00009526  __TI_Handler_Table_Base  
-00009532  __TI_Handler_Table_Limit 
-00009544  __TI_CINIT_Base          
-00009554  __TI_CINIT_Limit         
+0000878c  adc_task                 
+0000892c  ADC12_ISR                
+00008a88  error_dump               
+00008b6a  reset_isr                
+00008c4c  warning_dump             
+00008e04  hex2ascii_int            
+00008ebc  print_mon_analog_value   
+00008f64  _auto_init_hold_wdt      
+00008fe4  USCIA0_ISR               
+0000905c  unmi_isr                 
+000090b8  hex2ascii_byte           
+0000915c  main                     
+000091a8  setup_clock              
+000091f4  dbg_uart_send_string     
+00009238  __memcpy_far             
+00009278  __TI_zero_init           
+000092b6  clear_warnings           
+000092f2  __TI_decompress_none     
+0000932e  clear_errors             
+00009366  issue_warning            
+0000939e  adc_setup                
+000093d2  issue_error              
+00009400  dbg_uart_send_byte       
+0000942c  setup_dbg_uart           
+00009454  strncmp                  
+00009478  P1_get                   
+0000949a  P2_get                   
+000094bc  P3_get                   
+000094de  P4_get                   
+00009500  P5_get                   
+00009522  P6_get                   
+00009544  P7_get                   
+00009566  P8_get                   
+00009588  _c_int00_noargs_noexit   
+000095a2  dbg_uart_get_byte        
+000095bc  __mspabi_mpyi_f5hw       
+000095d2  __TI_decompress_rle24    
+000095e0  is_dbg_uart_rx_data_ready
+000095ee  led_P5_6_off             
+000095f6  led_P5_6_on              
+000095fe  led_P7_7_off             
+00009606  led_P7_7_on              
+0000960e  __TI_ISR_TRAP            
+00009614  disable_dbg_uart_txint   
+0000961a  enable_dbg_uart_txint    
+00009620  is_error                 
+00009626  led_P1_0_off             
+0000962c  led_P1_0_on              
+00009632  led_P2_2_off             
+00009638  led_P2_2_on              
+0000963e  _system_pre_init         
+00009642  C$$EXIT                  
+00009642  abort                    
+0000975a  __TI_Handler_Table_Base  
+00009766  __TI_Handler_Table_Limit 
+00009778  __TI_CINIT_Base          
+00009788  __TI_CINIT_Limit         
 0000ffd2  __TI_int41               
 0000ffd4  __TI_int42               
 0000ffd6  __TI_int43               
