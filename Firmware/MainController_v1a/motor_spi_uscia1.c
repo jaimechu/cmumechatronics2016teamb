@@ -30,7 +30,7 @@
 /* SPI Datastructure
  * Stores data and config relevant to current transaction
  */
-/*
+
 volatile struct MOTOR_SPI_data_struct MOTOR_SPI_data = {
 	.tx_bytes = {0},
 	.rx_bytes = {0},
@@ -40,42 +40,46 @@ volatile struct MOTOR_SPI_data_struct MOTOR_SPI_data = {
 	.in_use_flag = 0,
 	.data_ready = 0
 };
-*/
+
 
 /* Setup SPI as Master on USCI_A1
  * Clock Source: SMCLK (25MHz)/
  * idle: When idle, clock is low (0) or high (1)
  * edge: write bus on idle-active (0) or active-idle (1) edge
  */
-/*
+
 void Motor_SPI_setup(uint8_t idle, uint8_t edge){
 	//Hold USCI in reset for setup
-	UCB0CTL1 |= UCSWRST;
+	UCA1CTL1 |= UCSWRST;
 
-	UCB0CTL0 = (edge<<7) |	//Clock phase
+	UCA1CTL0 = (edge<<7) |	//Clock phase
 			   (idle<<6) | 	//Clock polarity
 			   UCMSB     |	//MSB first
 			   UCMST     |	//Master
 			   UCMODE_0;	//3-pin SPI
 
-	UCB0CTL1 = UCSSEL_2  |	//Source from SMCLK
+	UCA1CTL1 = UCSSEL_2  |	//Source from SMCLK
 			   UCSWRST;		//Keep USCI in reset
 
-	UCB0BR0 = 16;			//No divider, run at ~1MHz
-	//TODO: Check if UCB0BR0 can be 0 or 1
+	UCA1BR0 = 16;			//No divider, run at ~1MHz
 
 	//Enable use of SPI pins MOSI, MISO, SCK
-	P1SEL |= BIT5 | BIT6 | BIT7;
-	P1SEL2 |= BIT5 | BIT6 | BIT7;
+	P4SEL |= BIT0 | BIT3 | BIT4;
 
-	//CS on P2.5, set output high (disabled)
-	P2DIR |= BIT5;
-	SPI_CS_DEASSERT;
+	//CS1 on PJ.2, set output high (disabled)
+	PJDIR |= BIT2;
+	MOTOR1_SPI_CS_DEASSERT;
+	//CS2 on PJ.0, set output high (disabled)
+	PJDIR |= BIT0;
+	MOTOR2_SPI_CS_DEASSERT;
+	//CS3 on P4.6, set output high (disabled)
+	P4DIR |= BIT6;
+	MOTOR3_SPI_CS_DEASSERT;
 
-	UCB0CTL1 &= ~UCSWRST;	//Release USCI from Reset
+	UCA1CTL1 &= ~UCSWRST;	//Release USCI from Reset
 	return;
 }
-*/
+
 
 /* SM loads SPI datastructure, start transaction
  *

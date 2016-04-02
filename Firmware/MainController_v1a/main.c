@@ -141,6 +141,15 @@ inline void set_optical_chnl(uint8_t mux_chnl);
 
 /** END ADC task globals **/
 
+/** LDC task globals **/
+uint16_t ldc_get_proximity(void);
+void ldc_setup(void);
+void ldc_write_reg(uint8_t reg_addr, uint8_t data);
+void ldc_read_reg_multiple(uint8_t reg_addr, uint8_t *buf, uint8_t num_regs);
+uint8_t ldc_read_reg(uint8_t reg_addr);
+
+/** END LDC task globals **/
+
 /** Main Loop **/
 
 int main(void) {
@@ -157,14 +166,32 @@ int main(void) {
 	setup_clock();
 	setup_dbg_uart();
 	adc_setup();
+	LDC_SPI_setup(0,1);
 	//monitor_setup();
     // Enable Interrupts
     __bis_SR_register(GIE);
+    ldc_setup();
+    /*
     while(1)
     {
         debug_task();
         adc_task();
         //monitor_task();
+    }
+    */
+    uint8_t resp = 0;
+    volatile uint16_t prox_data = 0;
+    volatile uint8_t buf[16] = {0};
+    while(1){
+    	resp = ldc_read_reg(0x00);
+    	if(resp != 0x80){
+
+    	}
+    	ldc_read_reg_multiple(0x00,buf,6);
+    	ldc_read_reg_multiple(0x0A,buf,2);
+    	ldc_read_reg_multiple(0x20,buf,6);
+    	prox_data = ldc_get_proximity();
+
     }
 }
 
@@ -567,6 +594,84 @@ inline void set_optical_chnl(uint8_t mux_chnl){
 
 /** END ADC Task Functions **/
 
+/** LDC Task Functions **/
+
+//TODO: put into statechart
+
+/* Read LDC1000 register
+ * reg_addr: 8-bit register
+ * brd: 0,1,2 to access CS0,1,2.
+ */
+uint8_t ldc_read_reg(uint8_t reg_addr){
+	uint8_t buf[2] = {0x80,0x00};
+	buf[0] |= reg_addr;
+	init_LDC_SPI_transac(buf, 2);
+	while(!is_LDC_spi_rx_ready());
+	get_LDC_SPI_rx_data(buf);
+	return buf[1];
+}
+
+void ldc_read_reg_multiple(uint8_t reg_addr, uint8_t *buf, uint8_t num_regs){
+	buf[0] = 0x80|reg_addr;
+	init_LDC_SPI_transac(buf,num_regs+1);
+	while(!is_LDC_spi_rx_ready());
+	get_LDC_SPI_rx_data(buf);
+	return;
+}
+
+void ldc_write_reg(uint8_t reg_addr, uint8_t data){
+	uint8_t buf[2] = {0x00,0x00};
+	buf[0] = reg_addr;
+	buf[1] = data;
+	init_LDC_SPI_transac(buf, 2);
+	while(!is_LDC_spi_rx_ready());
+	end_LDC_SPI_transac();
+	//for debug
+	volatile uint8_t temp = 0;
+	temp = ldc_read_reg(0x05);
+	return;
+}
+
+void ldc_setup(void){
+	uint8_t resp = 0;
+	//Check ID register
+	resp = ldc_read_reg(0x00);
+	if(resp != 0x80){
+		P1OUT |= BIT0;
+		while(1);
+	}
+	volatile uint8_t readback = 0;
+	//Setup in standby mode
+	ldc_write_reg(0x0B,0);
+	//Write Rp max/min values
+	ldc_write_reg(0x01,0x00);	//RP_MAX
+	ldc_write_reg(0x02,0x3f);	//RP_MIN
+	//Watchdog frequency
+	ldc_write_reg(0x03,25);//179
+	//Configuration
+	ldc_write_reg(0x04,BIT4|BIT2|BIT1|BIT0);	//Amplitude=4V, Response time = 384
+	//Clock configuration
+	ldc_write_reg(0x05,BIT1);	//Enable crystal
+	//INTB configuration
+	ldc_write_reg(0x0A,BIT2);	//INTB indicates data ready
+
+	//check
+	readback = ldc_read_reg(0x05);
+	//Power configuration
+	ldc_write_reg(0x0B,BIT0);	//Active mode
+
+	readback = ldc_read_reg(0x05);
+	return;
+}
+
+uint16_t ldc_get_proximity(void){
+	uint8_t buf[8];
+	ldc_read_reg_multiple(0x20,buf,6);
+	return (buf[3]<<8)|buf[2];	//Proximity
+}
+
+/** END LDC Task Functions **/
+
 /** Debug Task functions **/
 
 /* Process debug command functions */
@@ -766,10 +871,10 @@ void debug_task(void){
 			sum += adc_output_buffer[12];
 			sum += adc_output_buffer[13];
 			sum += adc_output_buffer[14];
-			sum += adc_output_buffer[15];
-			sum += adc_output_buffer[16];
-			sum += adc_output_buffer[17];
-			sum += adc_output_buffer[18];
+			//sum += adc_output_buffer[15];
+			//sum += adc_output_buffer[16];
+			//sum += adc_output_buffer[17];
+			//sum += adc_output_buffer[18];
 			response_buf[0] = '0';
 			response_buf[1] = 'x';
 			hex2ascii_int(sum, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
@@ -778,11 +883,13 @@ void debug_task(void){
 		} else if((strncmp(debug_cmd_buf,"optall",6)==0) && (debug_cmd_buf_ptr == 6)){
 			//>optall
 			uint8_t i = 0;
-			for(i= 11; i <= 18; i++){
+			for(i= 11; i <= 14; i++){
 				response_buf[0] = '0';
 				response_buf[1] = 'x';
 				hex2ascii_int(adc_output_buffer[i], &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
-				response_size = 6;
+				response_buf[6] = 10;
+				response_buf[7] = 13;
+				response_size =8;
 				dbg_uart_send_string(response_buf,response_size);
 			}
 		} else {
@@ -889,9 +996,36 @@ __interrupt void USCIA0_ISR(void){
 		}
 	} else {
 		issue_warning(WARN_USCIA0_INT_ILLEGAL_FLAG);
-		while(1);
 	}
 }
+
+/* LDC SPI USCIB0 Interrupt Handler
+ * SPI Rx:
+ * SPI Tx:
+ */
+#pragma vector=USCI_B0_VECTOR
+__interrupt void USCIB0_ISR(void){
+	if((UCB0IE & UCRXIE) && (UCB0IFG & UCRXIFG)){	//SPI Rxbuf full interrupt
+		LDC_SPI_data.rx_bytes[LDC_SPI_data.rx_ptr] = UCB0RXBUF;	//Get latest byte from HW
+		LDC_SPI_data.rx_ptr++;								//Flag reset with buffer read
+		if(LDC_SPI_data.rx_ptr >= LDC_SPI_data.num_bytes){		//Done reading data
+			LDC0_SPI_CS_DEASSERT;							//Disable CS and disable interrupt
+			//TODO: Allow for multiple CS devices
+			LDC_SPI_RXINT_DISABLE;
+			LDC_SPI_data.data_ready = 1;
+		}
+
+	} else if((UCB0IE & UCTXIE) && (UCB0IFG & UCTXIFG)){
+		UCB0TXBUF = LDC_SPI_data.tx_bytes[LDC_SPI_data.tx_ptr];	//Load next byte into HW buffer
+		LDC_SPI_data.tx_ptr++;								//Flag reset with buffer write
+		if(LDC_SPI_data.tx_ptr >= LDC_SPI_data.num_bytes){		//Done transmitting data
+			LDC_SPI_TXINT_DISABLE;							//Disable Tx interrupt
+		}
+	} else {
+		issue_warning(WARN_USCIB0_INT_ILLEGAL_FLAG);
+	}
+}
+
 /* System Unmaskable Interrupt Handler
  * NMIIFG:
  * OFIFG: Oscillator Fault
