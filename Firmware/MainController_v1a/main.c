@@ -23,7 +23,7 @@ void debug_task(void);
 void reset_isr(void);
 
 #define DEBUG_CMD_BUF_SIZE 32
-#define DEBUG_RESPONSE_BUF_SIZE 100
+#define DEBUG_RESPONSE_BUF_SIZE 250
 uint8_t debug_cmd_buf[DEBUG_CMD_BUF_SIZE];
 uint8_t debug_cmd_buf_ptr = 0;
 
@@ -159,9 +159,9 @@ volatile ldc_state_t ldc_current_state = IDLE;
 #define LDC_WAIT_THRESH 250
 #define LDC_WAIT_THRESH_MIN 150
 #define NUM_LDC_SENSORS 3
-#define LDC_BUF_SIZE 200
+#define LDC_BUF_SIZE 300
 //TODO: Change buffer size
-volatile uint16_t ldc_data_buf[NUM_LDC_SENSORS][LDC_BUF_SIZE] = {0};
+uint16_t ldc_data_buf[NUM_LDC_SENSORS][LDC_BUF_SIZE];
 uint16_t ldc_buf_ptr0 = 0;
 uint16_t ldc_buf_ptr1 = 0;
 uint16_t ldc_buf_ptr2 = 0;
@@ -195,7 +195,7 @@ volatile mass_state_t mass_current_state = MASS_IDLE;
 uint8_t mass_run = 0;
 uint8_t mass_end = 0;
 #define NUM_MASS_SENSORS 4
-#define MASS_BUF_SIZE 5
+#define MASS_BUF_SIZE 300
 #define MASS_WAIT_CNTR 5000
 //TODO: Change buffer size
 uint16_t mass_data_buf[NUM_MASS_SENSORS][MASS_BUF_SIZE];
@@ -214,7 +214,7 @@ volatile opt_state_t opt_current_state = OPT_IDLE;
 uint8_t opt_run = 0;
 uint8_t opt_end = 0;
 #define NUM_OPT_SENSORS 8
-#define OPT_BUF_SIZE 5
+#define OPT_BUF_SIZE 300
 #define OPT_WAIT_CNTR 5000
 //TODO: Change buffer size
 uint16_t opt_data_buf[NUM_OPT_SENSORS][OPT_BUF_SIZE];
@@ -680,8 +680,7 @@ inline void set_optical_chnl(uint8_t mux_chnl){
 
 void ldc_task(void){
 	static uint16_t wait_cntr = 0;
-	volatile temp = 0;
-	uint8_t buf[8] = {0};
+	uint8_t buf[8];
 	uint8_t i = 0;
 	switch(ldc_current_state){
 	case IDLE:										//STATE 4.1
@@ -706,12 +705,11 @@ void ldc_task(void){
 		//State action
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 2 data
 		if(buf[1]&DRDY){
-			temp = (buf[3]<<8)|buf[2];
-			ldc_data_buf[2][ldc_buf_ptr0] = (buf[3]<<8)|buf[2];
-			ldc_buf_ptr0++;
+			ldc_data_buf[2][ldc_buf_ptr2] = (buf[3]<<8)|buf[2];
+			ldc_buf_ptr2++;
 		}
-		if(ldc_buf_ptr0 >= LDC_BUF_SIZE){
-			ldc_buf_ptr0 = 0;
+		if(ldc_buf_ptr2 >= LDC_BUF_SIZE){
+			ldc_buf_ptr2 = 0;
 		}
 		if(buf[1]&OSC_DEAD){
 			issue_warning(WARN_LDC2_OSC_DEAD);
@@ -739,14 +737,13 @@ void ldc_task(void){
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 0 data
 
 		if(buf[1]&DRDY){
-			P1OUT ^= BIT0;
-			temp = (buf[3]<<8)|buf[2];
+
 			ldc_data_buf[0][ldc_buf_ptr0] = (buf[3]<<8)|buf[2];
-			//ldc_buf_ptr0 ++;
+			ldc_buf_ptr0 ++;
 		}
-		//if(ldc_buf_ptr0 >= LDC_BUF_SIZE){
-		//		ldc_buf_ptr0 = 0;
-		//	}
+		if(ldc_buf_ptr0 >= LDC_BUF_SIZE){
+				ldc_buf_ptr0 = 0;
+			}
 		if(buf[1]&OSC_DEAD){
 			issue_warning(WARN_LDC0_OSC_DEAD);
 		}
@@ -772,13 +769,13 @@ void ldc_task(void){
 		//State action
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
 		if(buf[1]&DRDY){
-			temp = (buf[3]<<8)|buf[2];
-			ldc_data_buf[1][ldc_buf_ptr0] = (buf[3]<<8)|buf[2];
-			//ldc_buf_ptr1 ++;
+
+			ldc_data_buf[1][ldc_buf_ptr1] = (buf[3]<<8)|buf[2];
+			ldc_buf_ptr1 ++;
 		}
-		//if(ldc_buf_ptr1 >= LDC_BUF_SIZE){
-		//		ldc_buf_ptr1 = 0;
-		//	}
+		if(ldc_buf_ptr1 >= LDC_BUF_SIZE){
+				ldc_buf_ptr1 = 0;
+			}
 		if(buf[1]&OSC_DEAD){
 			issue_warning(WARN_LDC1_OSC_DEAD);
 		}
@@ -1319,28 +1316,6 @@ void debug_task(void){
 			//>ldcget
 			uint8_t i = 0;
 			uint16_t prox_data = 0;
-			//for(i = ldc_buf_ptr0; i < LDC_BUF_SIZE; i++){
-
-			for(i = 0; i < LDC_BUF_SIZE; i++){
-				prox_data = ldc_data_buf[0][i];
-				hex2ascii_int(prox_data, &response_buf[0], &response_buf[1], &response_buf[2], &response_buf[3]);
-				response_buf[4] = 10;
-				response_buf[5] = 13;
-				dbg_uart_send_string(response_buf,6);
-			}
-
-			/*
-			for(i = 0; i < ldc_buf_ptr0; i++){
-				prox_data = ldc_data_buf[0][i];
-				hex2ascii_int(prox_data, &response_buf[0], &response_buf[1], &response_buf[2], &response_buf[3]);
-				response_buf[4] = 10;
-				response_buf[5] = 13;
-				dbg_uart_send_string(response_buf,6);
-			}
-			*/
-
-
-/*
 			for(i = 0; i <= 2 ; i++){
 				uint16_t prox_data = ldc_data_buf[i];
 				response_buf[0] = '0';
@@ -1351,43 +1326,6 @@ void debug_task(void){
 				dbg_uart_send_byte(13);		//CR
 				dbg_uart_send_byte(10);		//Line feed
 			}
-*/
-		} else if((strncmp(debug_cmd_buf,"lg1",3)==0) && (debug_cmd_buf_ptr == 3)){
-			//>ldcget
-			uint8_t i = 0;
-			uint16_t prox_data = 0;
-			for(i = ldc_buf_ptr1; i < LDC_BUF_SIZE; i++){
-				prox_data = ldc_data_buf[1][i];
-				hex2ascii_int(prox_data, &response_buf[0], &response_buf[1], &response_buf[2], &response_buf[3]);
-				response_buf[4] = 10;
-				response_buf[5] = 13;
-				dbg_uart_send_string(response_buf,6);
-			}
-			for(i = 0; i < ldc_buf_ptr1; i++){
-				prox_data = ldc_data_buf[1][i];
-				hex2ascii_int(prox_data, &response_buf[0], &response_buf[1], &response_buf[2], &response_buf[3]);
-				response_buf[4] = 10;
-				response_buf[5] = 13;
-				dbg_uart_send_string(response_buf,6);
-			}
-		} else if((strncmp(debug_cmd_buf,"lg2",3)==0) && (debug_cmd_buf_ptr == 3)){
-			//>ldcget
-			uint8_t i = 0;
-			uint16_t prox_data = 0;
-			for(i = ldc_buf_ptr2; i < LDC_BUF_SIZE; i++){
-				prox_data = ldc_data_buf[2][i];
-				hex2ascii_int(prox_data, &response_buf[0], &response_buf[1], &response_buf[2], &response_buf[3]);
-				response_buf[4] = 10;
-				response_buf[5] = 13;
-				dbg_uart_send_string(response_buf,6);
-			}
-			for(i = 0; i < ldc_buf_ptr2; i++){
-				prox_data = ldc_data_buf[0][i];
-				hex2ascii_int(prox_data, &response_buf[0], &response_buf[1], &response_buf[2], &response_buf[3]);
-				response_buf[4] = 10;
-				response_buf[5] = 13;
-				dbg_uart_send_string(response_buf,6);
-			}
 		} else if((strncmp(debug_cmd_buf,"ms",2)==0) && (debug_cmd_buf_ptr == 2)){
 			//>massrun
 			mass_run = 1;
@@ -1396,32 +1334,6 @@ void debug_task(void){
 			mass_end = 1;
 		} else if((strncmp(debug_cmd_buf,"mg",2)==0) && (debug_cmd_buf_ptr == 2)){
 			//>massget
-			uint8_t i = 0;
-			uint8_t j = 0;
-			uint8_t resp_buf_ptr = 0;
-			for(i = mass_buf_ptr; i < MASS_BUF_SIZE; i++){
-				resp_buf_ptr = 0;
-				for(j=0; j < NUM_MASS_SENSORS; j++){
-					hex2ascii_int(mass_data_buf[j][i], &response_buf[resp_buf_ptr], &response_buf[resp_buf_ptr+1], &response_buf[resp_buf_ptr+2], &response_buf[resp_buf_ptr+3]);
-					response_buf[resp_buf_ptr+4] = 9;
-					resp_buf_ptr += 5;
-				}
-				response_buf[resp_buf_ptr] = 10;
-				response_buf[resp_buf_ptr+1] = 13;
-				dbg_uart_send_string(response_buf,resp_buf_ptr+2);
-			}
-			for(i = 0; i < mass_buf_ptr; i++){
-				resp_buf_ptr = 0;
-				for(j=0; j < NUM_MASS_SENSORS; j++){
-					hex2ascii_int(mass_data_buf[j][i], &response_buf[resp_buf_ptr], &response_buf[resp_buf_ptr+1], &response_buf[resp_buf_ptr+2], &response_buf[resp_buf_ptr+3]);
-					response_buf[resp_buf_ptr+4] = 9;
-					resp_buf_ptr += 5;
-				}
-				response_buf[resp_buf_ptr] = 10;
-				response_buf[resp_buf_ptr+1] = 13;
-				dbg_uart_send_string(response_buf,resp_buf_ptr+2);
-			}
-			/*
 			uint8_t i = 0;
 			for(i = 0; i < NUM_MASS_SENSORS ; i++){
 				uint16_t mass_data = mass_data_buf[i][mass_buf_ptr];
@@ -1433,7 +1345,6 @@ void debug_task(void){
 				dbg_uart_send_byte(13);		//CR
 				dbg_uart_send_byte(10);		//Line feed
 			}
-			*/
 		} else if((strncmp(debug_cmd_buf,"os",2)==0) && (debug_cmd_buf_ptr == 2)){
 			//>optrun
 			opt_run = 1;
@@ -1443,31 +1354,7 @@ void debug_task(void){
 		} else if((strncmp(debug_cmd_buf,"og",2)==0) && (debug_cmd_buf_ptr == 2)){
 			//>optget
 			uint8_t i = 0;
-			uint8_t j = 0;
-			uint8_t resp_buf_ptr = 0;
-			for(i = opt_buf_ptr; i < OPT_BUF_SIZE; i++){
-				resp_buf_ptr = 0;
-				for(j=0; j < NUM_OPT_SENSORS; j++){
-					hex2ascii_int(opt_data_buf[j][i], &response_buf[resp_buf_ptr], &response_buf[resp_buf_ptr+1], &response_buf[resp_buf_ptr+2], &response_buf[resp_buf_ptr+3]);
-					response_buf[resp_buf_ptr+4] = 9;
-					resp_buf_ptr += 5;
-				}
-				response_buf[resp_buf_ptr] = 10;
-				response_buf[resp_buf_ptr+1] = 13;
-				dbg_uart_send_string(response_buf,resp_buf_ptr+2);
-			}
-			for(i = 0; i < opt_buf_ptr; i++){
-				resp_buf_ptr = 0;
-				for(j=0; j < NUM_OPT_SENSORS; j++){
-					hex2ascii_int(opt_data_buf[j][i], &response_buf[resp_buf_ptr], &response_buf[resp_buf_ptr+1], &response_buf[resp_buf_ptr+2], &response_buf[resp_buf_ptr+3]);
-					response_buf[resp_buf_ptr+4] = 9;
-					resp_buf_ptr += 5;
-				}
-				response_buf[resp_buf_ptr] = 10;
-				response_buf[resp_buf_ptr+1] = 13;
-				dbg_uart_send_string(response_buf,resp_buf_ptr+2);
-			}
-			/*
+
 			for(i = 0; i < NUM_OPT_SENSORS; i++){
 				uint16_t opt_data = opt_data_buf[i][opt_buf_ptr];
 				response_buf[0] = '0';
@@ -1478,7 +1365,7 @@ void debug_task(void){
 				dbg_uart_send_byte(13);		//CR
 				dbg_uart_send_byte(10);		//Line feed
 			}
-			*/
+
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}

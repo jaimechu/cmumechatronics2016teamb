@@ -14,14 +14,14 @@
 #include <msp430.h>
 #include "utils.h"
 
-#define DBG_UART_TX_BUF_SIZE 2000
+#define DBG_UART_TX_BUF_SIZE 250
 #define DBG_UART_RX_BUF_SIZE 250
 
 struct DBG_UART_data_struct{
 	uint8_t tx_bytes[DBG_UART_TX_BUF_SIZE];	//Bytes to send
 	uint8_t rx_bytes[DBG_UART_RX_BUF_SIZE];	//Bytes recieved
-	uint16_t tx_head;					//Index of byte to transmit next
-	uint16_t tx_tail;					//Index of next empty byte slot in tx buffer
+	uint8_t tx_head;					//Index of byte to transmit next
+	uint8_t tx_tail;					//Index of next empty byte slot in tx buffer
 	uint8_t rx_head;					//Index of oldest byte recieved
 	uint8_t rx_tail;					//Index of next empty byte slot in rx buffer
 };
