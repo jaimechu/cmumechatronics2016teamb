@@ -23,6 +23,7 @@
  * P3.0: MOSI
  * P3.6: LDC_CS0 (active low)
  * P3.5: LDC_CS1 (active low)
+ * P7.0: LDC_CS2 (active low)
  */
 #include "ldc_spi_uscib0.h"
 
@@ -36,7 +37,8 @@ volatile struct LDC_SPI_data_struct LDC_SPI_data = {
 	.rx_ptr = 0,
 	.num_bytes = 0,
 	.in_use_flag = 0,
-	.data_ready = 0
+	.data_ready = 0,
+	.brd = 0
 };
 
 /* Setup SPI as Master on USCI_B0
@@ -70,15 +72,20 @@ void LDC_SPI_setup(uint8_t idle, uint8_t edge){
 	P3DIR |= BIT5;
 	LDC1_SPI_CS_DEASSERT;
 
+	//CS on P7.0, set output high (disabled)
+	P7DIR |= BIT0;
+	LDC2_SPI_CS_DEASSERT;
+
 	UCB0CTL1 &= ~UCSWRST;	//Release USCI from Reset
 	return;
 }
 
 /* SM loads SPI datastructure, start transaction
- *
+ * tx_bytes: array of bytes to send
+ * num_bytes: number of bytes to send
+ * brd: Board to access (0,1,2)
  */
-void init_LDC_SPI_transac(uint8_t *tx_bytes, uint8_t num_bytes){
-	//TODO: Check if datastructure already in use
+void init_LDC_SPI_transac(uint8_t *tx_bytes, uint8_t num_bytes, uint8_t brd){
 	LDC_SPI_data.in_use_flag = 1;
 	uint8_t i;
 	for(i = 0; i < num_bytes; i++){			//Copy Tx data to SPI datastructure
@@ -87,15 +94,25 @@ void init_LDC_SPI_transac(uint8_t *tx_bytes, uint8_t num_bytes){
 	LDC_SPI_data.num_bytes = num_bytes;			//Copy Transaction size to SPI datastructure
 	LDC_SPI_data.tx_ptr = 0;					//Reset pointers
 	LDC_SPI_data.rx_ptr = 0;
-	//TODO: add functionality for mutltiple CS pins
-	LDC0_SPI_CS_ASSERT;
+	if(brd == 0){
+		LDC0_SPI_CS_ASSERT;
+		LDC_SPI_data.brd = 0;
+	} else if(brd == 1){
+		LDC1_SPI_CS_ASSERT;
+		LDC_SPI_data.brd = 1;
+	} else if(brd == 2){
+		LDC2_SPI_CS_ASSERT;
+		LDC_SPI_data.brd = 2;
+	} else {
+		issue_warning(WARN_ILLEGAL_LDC_SPI_CS);
+	}
 	LDC_SPI_TXINT_ENABLE;	//Enable SPI Interrupts
 	LDC_SPI_RXINT_ENABLE;
 	return;
 }
 
 /* SM gets recieved data, releases SPI datastructure
- *
+ * rx_data: buffer to store recieved data
  */
 uint8_t get_LDC_SPI_rx_data(uint8_t *rx_data){
 	uint8_t i;

@@ -15,6 +15,7 @@
 #include "clock_f5.h"
 #include "dbg_uart_uscia0.h"
 #include "ldc_spi_uscib0.h"
+#include "ldc1000.h"
 
 
 /** Debug task macros and globals **/
@@ -142,13 +143,48 @@ inline void set_optical_chnl(uint8_t mux_chnl);
 /** END ADC task globals **/
 
 /** LDC task globals **/
-uint16_t ldc_get_proximity(void);
-void ldc_setup(void);
-void ldc_write_reg(uint8_t reg_addr, uint8_t data);
-void ldc_read_reg_multiple(uint8_t reg_addr, uint8_t *buf, uint8_t num_regs);
-uint8_t ldc_read_reg(uint8_t reg_addr);
+void ldc_task(void);
+typedef enum {IDLE,
+			  POLL_BRD0,
+			  WAIT_BRD0,
+			  POLL_BRD1,
+			  WAIT_BRD1,
+			  POLL_BRD2,
+			  WAIT_BRD2,
+			  COMPUTE,
+			  HANG_ERR,
+			  REPOLL_BRD0
+} ldc_state_t;
+volatile ldc_state_t ldc_current_state = IDLE;
+#define LDC_WAIT_THRESH 1000
+//TODO: Change buffer size
+uint16_t ldc_data_buf[3] = {0};
+uint8_t ldc_run = 0;
+uint8_t ldc_stop = 0;
+uint16_t ldc_final_val = 0;
+
+uint16_t ldc_get_proximity(uint8_t brd);
+void ldc_setup(uint8_t brd);
+void ldc_write_reg(uint8_t reg_addr, uint8_t data, uint8_t brd);
+inline uint8_t ldc_read_reg(uint8_t reg_addr, uint8_t brd);
+inline void ldc_read_reg_init(uint8_t reg_addr, uint8_t brd);
+inline uint8_t ldc_read_reg_get_data(void);
+inline void ldc_read_reg_multiple(uint8_t reg_addr, uint8_t *buf, uint8_t num_regs, uint8_t brd);
+inline void ldc_read_reg_multiple_init(uint8_t reg_addr, uint8_t *buf, uint8_t num_regs, uint8_t brd);
+inline uint8_t ldc_read_reg_multiple_get_data(uint8_t *buf);
+
 
 /** END LDC task globals **/
+
+/** Mass task globals **/
+void mass_task(void);
+typedef enum {MASS_IDLE,
+	          MASS_WAIT,
+			  MASS_GET,
+			  MASS_COMPUTE
+} mass_state_t;
+volatile mass_state_t mass_current_state = MASS_IDLE;
+/** END Mass task globals **/
 
 /** Main Loop **/
 
@@ -170,29 +206,38 @@ int main(void) {
 	//monitor_setup();
     // Enable Interrupts
     __bis_SR_register(GIE);
-    ldc_setup();
-    /*
+    ldc_setup(0);
+    ldc_setup(1);
+    ldc_setup(2);
+
     while(1)
     {
         debug_task();
         adc_task();
+        ldc_task();
         //monitor_task();
     }
-    */
+/*
+
     uint8_t resp = 0;
     volatile uint16_t prox_data = 0;
     volatile uint8_t buf[16] = {0};
     while(1){
-    	resp = ldc_read_reg(0x00);
+    	resp = ldc_read_reg(0x00,2);
     	if(resp != 0x80){
-
+    		while(1);
     	}
-    	ldc_read_reg_multiple(0x00,buf,6);
-    	ldc_read_reg_multiple(0x0A,buf,2);
-    	ldc_read_reg_multiple(0x20,buf,6);
-    	prox_data = ldc_get_proximity();
+    	ldc_read_reg_multiple(0x00,buf,6,2);
+    	ldc_read_reg_multiple(0x0A,buf,2,2);
+    	ldc_read_reg_multiple(0x20,buf,6,2);
+    	if(buf[1]&OSC_DEAD){
+    		uint8_t i = 0;
+    		for(i=0; i < 1; i++);
+    	}
+    	prox_data = ldc_get_proximity(2);
 
     }
+*/
 }
 
 /** END Main Loop **/
@@ -461,7 +506,7 @@ void adc_setup(void){
 	//Setup ADC pins to use ADC
 	P6SEL = 0xFF;
 	P5SEL |= BIT0;
-	P7SEL |= BIT0 + BIT1 + BIT2 + BIT3;
+	P7SEL |= BIT1 + BIT2 + BIT3;	//P7.0 removed from sequence (reassigned to LDC_CS2)
 	//Setup ADC12
 	ADC12CTL0 = ADC12SHT1_5 +	//96 ADCLK cycles for sampling (775Hz sequence rate)
 				ADC12SHT0_5 +
@@ -493,9 +538,8 @@ void adc_task(void){
 		ADC12MCTL6 = ADC12SREF_0 + ADC12INCH_6;		//A6 Hall pos 4
 		ADC12MCTL7 = ADC12SREF_0 + ADC12INCH_7;		//A7 Hall pos 5
 		ADC12MCTL8 = ADC12SREF_0 + ADC12INCH_10;	//A10 Temp
-		ADC12MCTL9 = ADC12SREF_0 + ADC12INCH_11;	//A11 3.3V sense
-		ADC12MCTL10 = ADC12EOS + ADC12SREF_0 + ADC12INCH_12;	//A12 Hall pos 6, end of sequence
-		ADC12IE = ADC12IE10;						//Enable ADC12 interrupt
+		ADC12MCTL9 = ADC12EOS + ADC12SREF_0 + ADC12INCH_11;	//A11 3.3V sense, end of sequence
+		ADC12IE = ADC12IE9;						//Enable ADC12 interrupt
 		ADC12CTL0 |= ADC12SC+ADC12ENC;				//Start conversion
 		//State transition
 		adc_current_state = WAIT_SEQ1;				//T8.1
@@ -523,7 +567,7 @@ void adc_task(void){
 		ADC12MCTL1 = ADC12SREF_0 + ADC12INCH_13;		//A13 Hall Bank A
 		ADC12MCTL2 = ADC12SREF_0 + ADC12INCH_14;		//A14 Hall Bank B
 		ADC12MCTL3 = ADC12EOS+ ADC12SREF_0 + ADC12INCH_15;		//A15 Hall Bank C, end of sequence
-		ADC12MCTL10 &= ~ADC12EOS;
+		ADC12MCTL9 &= ~ADC12EOS;
 		ADC12IE = ADC12IE3;						//Enable ADC12 interrupt
 		ADC12CTL0 |= ADC12SC+ADC12ENC;				//Start conversion
 		adc12_int_done_flag = 0;
@@ -596,79 +640,258 @@ inline void set_optical_chnl(uint8_t mux_chnl){
 
 /** LDC Task Functions **/
 
-//TODO: put into statechart
+void ldc_task(void){
+	static uint16_t wait_cntr = 0;
+	uint8_t buf[8];
+	uint8_t i = 0;
+	switch(ldc_current_state){
+	case IDLE:										//STATE 4.1
+		//State action:
+		ldc_stop = 0;
+		//State transition
+		if(ldc_run == 0){							//T4.1
+			ldc_current_state = IDLE;
+		} else {									//T4.2
+			ldc_current_state = POLL_BRD0;
+		}
+		break;
+	case POLL_BRD0:									//STATE 4.2
+		//State action
+		ldc_run = 0;
+		ldc_read_reg_multiple_init(LDC_STATUS,buf,3,0);	//Send request for board 0 data
+		wait_cntr = 0;
+		//State transition
+		ldc_current_state = WAIT_BRD0;				//T4.3
+		break;
+	case REPOLL_BRD0:								//STATE 4.9
+		//State action
+		ldc_read_reg_multiple_get_data(buf);		//Get Board 2 data
+		if(buf[1]&DRDY){
+			ldc_data_buf[2] = (buf[3]<<8)|buf[2];
+		}
+		if(buf[1]&OSC_DEAD){
+			issue_warning(WARN_LDC2_OSC_DEAD);
+		}
+		ldc_read_reg_multiple_init(LDC_STATUS,buf,3,0);	//Send request for board 0 data
+		wait_cntr = 0;
+		//State transiton
+		ldc_current_state = WAIT_BRD0;				//T4.17
+		break;
+	case WAIT_BRD0:									//STATE 4.3
+		//State action
+		wait_cntr++;
+		//State transition
+		if(is_LDC_spi_rx_ready()){					//T4.4
+			ldc_current_state = POLL_BRD1;
+		} else if(wait_cntr > LDC_WAIT_THRESH){		//T4.13
+			ldc_current_state = HANG_ERR;
+		} else {									//T4.10
+			ldc_current_state = WAIT_BRD0;
+		}
+		break;
+	case POLL_BRD1:									//STATE 4.4
+		//State action
+		ldc_read_reg_multiple_get_data(buf);		//Get Board 0 data
+		if(buf[1]&DRDY){
+			ldc_data_buf[0] = (buf[3]<<8)|buf[2];
+		}
+		if(buf[1]&OSC_DEAD){
+			issue_warning(WARN_LDC0_OSC_DEAD);
+		}
+		ldc_read_reg_multiple_init(LDC_STATUS,buf,3,1); //Send request for board 1 data
+		wait_cntr = 0;
+		//State transition
+		ldc_current_state = WAIT_BRD1;				//T4.5
+		break;
+	case WAIT_BRD1:									//STATE 4.5
+		//State action
+		wait_cntr++;
+		//State transition
+		if(is_LDC_spi_rx_ready()){					//T4.6
+			ldc_current_state = POLL_BRD2;
+		} else if(wait_cntr > LDC_WAIT_THRESH){		//T4.14
+			ldc_current_state = HANG_ERR;
+		} else {									//T4.11
+			ldc_current_state = WAIT_BRD1;
+		}
+		break;
+	case POLL_BRD2:									//STATE 4.6
+		//State action
+		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
+		if(buf[1]&DRDY){
+			ldc_data_buf[1] = (buf[3]<<8)|buf[2];
+		}
+		if(buf[1]&OSC_DEAD){
+			issue_warning(WARN_LDC1_OSC_DEAD);
+		}
+		ldc_read_reg_multiple_init(LDC_STATUS,buf,3,2);
+		wait_cntr = 0;
+		//State transition
+		ldc_current_state = WAIT_BRD2;				//T4.7
+		break;
+	case WAIT_BRD2:									//STATE 4.7
+		//State action
+		wait_cntr++;
+		//State transition
+		if(ldc_stop && is_LDC_spi_rx_ready()){		//T4.8
+			ldc_current_state = COMPUTE;
+		} else if(!ldc_stop && is_LDC_spi_rx_ready()){//T4.16
+			ldc_current_state = REPOLL_BRD0;
+		} else if(wait_cntr > LDC_WAIT_THRESH){		//T4.15
+			ldc_current_state = HANG_ERR;
+		} else {									//T4.12
+			ldc_current_state = WAIT_BRD2;
+		}
+		break;
+	case COMPUTE:									//STATE 4.8
+		//State action
+		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
+		if(buf[1]&DRDY){
+			ldc_data_buf[2] = (buf[3]<<8)|buf[2];
+		}
+		if(buf[1]&OSC_DEAD){
+			issue_warning(WARN_LDC1_OSC_DEAD);
+		}
+		ldc_final_val = 0;
+		for(i = 0; i < 3; i++){
+			ldc_final_val += ldc_data_buf[i];
+		}
+		//State transition
+		ldc_current_state = IDLE;					//T4.9
+		break;
+	case HANG_ERR:									//STATE 4.10
+		//State action
+		issue_warning(WARN_LDC_SPI_HANG);
+		end_LDC_SPI_transac();
+		//State transition
+		ldc_current_state = POLL_BRD0;				//T4.18
+		break;
+	default:
+		issue_warning(WARN_ILLEGAL_LDC_SM_STATE);
+		break;
+	}
+}
 
 /* Read LDC1000 register
  * reg_addr: 8-bit register
  * brd: 0,1,2 to access CS0,1,2.
  */
-uint8_t ldc_read_reg(uint8_t reg_addr){
+inline uint8_t ldc_read_reg(uint8_t reg_addr, uint8_t brd){
 	uint8_t buf[2] = {0x80,0x00};
 	buf[0] |= reg_addr;
-	init_LDC_SPI_transac(buf, 2);
+	init_LDC_SPI_transac(buf, 2,brd);
 	while(!is_LDC_spi_rx_ready());
 	get_LDC_SPI_rx_data(buf);
 	return buf[1];
 }
 
-void ldc_read_reg_multiple(uint8_t reg_addr, uint8_t *buf, uint8_t num_regs){
+/* Read LDC1000 register, start transaction, non-blocking
+ * reg_addr: 8-bit register
+ * brd: 0,1,2 to access CS0,1,2.
+ */
+inline void ldc_read_reg_init(uint8_t reg_addr, uint8_t brd){
+	uint8_t buf[2] = {0x00,0x00};
+	buf[0] |= reg_addr;
+	init_LDC_SPI_transac(buf, 2,brd);
+	return;
+}
+
+/* Read LDC1000 register, get data from transaction, non-blocking
+ * ldc_read_reg_init() must be called previously
+ * reg_addr: 8-bit register
+ * brd: 0,1,2 to access CS0,1,2.
+ */
+inline uint8_t ldc_read_reg_get_data(void){
+	uint8_t buf[2] = {0x80,0x00};
+	get_LDC_SPI_rx_data(buf);
+	return buf[1];
+}
+
+/* Read LDC1000 multiple registers
+ * buf: buffer with data to send (reg address is inserted automatically)
+ * reg_addr: 8-bit register
+ * brd: 0,1,2 to access CS0,1,2.
+ */
+inline void ldc_read_reg_multiple(uint8_t reg_addr, uint8_t *buf, uint8_t num_regs, uint8_t brd){
 	buf[0] = 0x80|reg_addr;
-	init_LDC_SPI_transac(buf,num_regs+1);
+	init_LDC_SPI_transac(buf,num_regs+1,brd);
 	while(!is_LDC_spi_rx_ready());
 	get_LDC_SPI_rx_data(buf);
 	return;
 }
 
-void ldc_write_reg(uint8_t reg_addr, uint8_t data){
+/* Read LDC1000 multiple registers, start transaction, non-blocking
+ * buf: buffer with data to send (reg address is inserted automatically)
+ * reg_addr: 8-bit register
+ * brd: 0,1,2 to access CS0,1,2.
+ */
+inline void ldc_read_reg_multiple_init(uint8_t reg_addr, uint8_t *buf, uint8_t num_regs, uint8_t brd){
+	buf[0] = 0x80|reg_addr;
+	init_LDC_SPI_transac(buf,num_regs+1,brd);
+	return;
+}
+
+/* Read LDC1000 multiple registers, get data from transaction, non-blocking
+ * buf: buffer to store data
+ * returns number of bytes recieved
+ */
+inline uint8_t ldc_read_reg_multiple_get_data(uint8_t *buf){
+	return get_LDC_SPI_rx_data(buf);
+}
+
+void ldc_write_reg(uint8_t reg_addr, uint8_t data, uint8_t brd){
 	uint8_t buf[2] = {0x00,0x00};
 	buf[0] = reg_addr;
 	buf[1] = data;
-	init_LDC_SPI_transac(buf, 2);
+	init_LDC_SPI_transac(buf, 2, brd);
 	while(!is_LDC_spi_rx_ready());
 	end_LDC_SPI_transac();
 	//for debug
 	volatile uint8_t temp = 0;
-	temp = ldc_read_reg(0x05);
+	temp = ldc_read_reg(0x05, brd);
 	return;
 }
 
-void ldc_setup(void){
+void ldc_setup(uint8_t brd){
 	uint8_t resp = 0;
 	//Check ID register
-	resp = ldc_read_reg(0x00);
+	resp = ldc_read_reg(0x00, brd);
 	if(resp != 0x80){
 		P1OUT |= BIT0;
 		while(1);
 	}
 	volatile uint8_t readback = 0;
 	//Setup in standby mode
-	ldc_write_reg(0x0B,0);
+	ldc_write_reg(0x0B,0, brd);
 	//Write Rp max/min values
-	ldc_write_reg(0x01,0x00);	//RP_MAX
-	ldc_write_reg(0x02,0x3f);	//RP_MIN
+	ldc_write_reg(0x01,0x00, brd);	//RP_MAX
+	ldc_write_reg(0x02,0x3f, brd);	//RP_MIN
 	//Watchdog frequency
-	ldc_write_reg(0x03,25);//179
+	ldc_write_reg(0x03,25, brd);//179
 	//Configuration
-	ldc_write_reg(0x04,BIT4|BIT2|BIT1|BIT0);	//Amplitude=4V, Response time = 384
+	ldc_write_reg(0x04,BIT4|BIT2|BIT1|BIT0, brd);	//Amplitude=4V, Response time = 6144, 4kHz sampling rate
 	//Clock configuration
-	ldc_write_reg(0x05,BIT1);	//Enable crystal
+	ldc_write_reg(0x05,BIT1, brd);	//Enable crystal
 	//INTB configuration
-	ldc_write_reg(0x0A,BIT2);	//INTB indicates data ready
+	ldc_write_reg(0x0A,BIT2, brd);	//INTB indicates data ready
 
 	//check
-	readback = ldc_read_reg(0x05);
+	readback = ldc_read_reg(0x05, brd);
 	//Power configuration
-	ldc_write_reg(0x0B,BIT0);	//Active mode
+	ldc_write_reg(0x0B,BIT0, brd);	//Active mode
 
-	readback = ldc_read_reg(0x05);
+	readback = ldc_read_reg(0x05, brd);
 	return;
 }
 
-uint16_t ldc_get_proximity(void){
+uint16_t ldc_get_proximity(uint8_t brd){
 	uint8_t buf[8];
-	ldc_read_reg_multiple(0x20,buf,6);
+	ldc_read_reg_multiple(0x20,buf,6, brd);
 	return (buf[3]<<8)|buf[2];	//Proximity
 }
+
+
+
 
 /** END LDC Task Functions **/
 
@@ -892,6 +1115,37 @@ void debug_task(void){
 				response_size =8;
 				dbg_uart_send_string(response_buf,response_size);
 			}
+		/*} else if((strncmp(debug_cmd_buf,"l",1)==0) && (debug_cmd_buf_ptr == 1)){
+			//>ldcall
+			// WARNING: DO NOT USE UNTIL SM CHECKS FOR SPI DATASTRUCTURE BUSY
+			uint8_t i = 0;
+			for(i = 0; i <= 2 ; i++){
+				uint16_t prox_data = ldc_get_proximity(i);
+				response_buf[0] = '0';
+				response_buf[1] = 'x';
+				hex2ascii_int(prox_data, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+				response_size = 6;
+				dbg_uart_send_string(response_buf,response_size);
+			}*/
+		} else if((strncmp(debug_cmd_buf,"l2",2)==0) && (debug_cmd_buf_ptr == 2)){
+			//>ldcrun
+			ldc_run = 1;
+		} else if((strncmp(debug_cmd_buf,"l3",2)==0) && (debug_cmd_buf_ptr == 2)){
+			//>ldcstop
+			ldc_stop = 1;
+		} else if((strncmp(debug_cmd_buf,"l4",2)==0) && (debug_cmd_buf_ptr == 2)){
+			//>ldcget
+			uint8_t i = 0;
+			for(i = 0; i <= 2 ; i++){
+				uint16_t prox_data = ldc_data_buf[i];
+				response_buf[0] = '0';
+				response_buf[1] = 'x';
+				hex2ascii_int(prox_data, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+				response_size = 6;
+				dbg_uart_send_string(response_buf,response_size);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+			}
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
@@ -926,7 +1180,7 @@ __interrupt void ADC12_ISR(void){
 	 * 7: A5 (Hall Position Encoder 3)
 	 * 8: A6 (Hall Position Encoder 4)
 	 * 9: A7 (Hall Position Encoder 5)
-	 * 10: A12 (Hall Position Encoder 6)
+	 * 10: A12 (Hall Position Encoder 6) UNUSED: Reassigned to LDC_CS2
 	 * 11-18: A8 (Optical bank, 8 channels)
 	 * 19-26: A13 (Hall Bank A, 8 channels)
 	 * 27-34: A14 (Hall Bank B, 8 channels)
@@ -960,7 +1214,6 @@ __interrupt void ADC12_ISR(void){
 		adc_internal_buffer[7] = ADC12MEM[7];
 		adc_internal_buffer[8] = ADC12MEM[8];
 		adc_internal_buffer[9] = ADC12MEM[9];
-		adc_internal_buffer[10] = ADC12MEM[10];
 		adc12_int_done_flag = 1;
 	}
 
@@ -1005,12 +1258,19 @@ __interrupt void USCIA0_ISR(void){
  */
 #pragma vector=USCI_B0_VECTOR
 __interrupt void USCIB0_ISR(void){
-	if((UCB0IE & UCRXIE) && (UCB0IFG & UCRXIFG)){	//SPI Rxbuf full interrupt
+	if((UCB0IE & UCRXIE) && (UCB0IFG & UCRXIFG)){				//SPI Rxbuf full interrupt
 		LDC_SPI_data.rx_bytes[LDC_SPI_data.rx_ptr] = UCB0RXBUF;	//Get latest byte from HW
-		LDC_SPI_data.rx_ptr++;								//Flag reset with buffer read
+		LDC_SPI_data.rx_ptr++;									//Flag reset with buffer read
 		if(LDC_SPI_data.rx_ptr >= LDC_SPI_data.num_bytes){		//Done reading data
-			LDC0_SPI_CS_DEASSERT;							//Disable CS and disable interrupt
-			//TODO: Allow for multiple CS devices
+			if(LDC_SPI_data.brd == 0){							//Disable CS and disable interrupt
+				LDC0_SPI_CS_DEASSERT;
+			} else if(LDC_SPI_data.brd == 1){
+				LDC1_SPI_CS_DEASSERT;
+			} else if(LDC_SPI_data.brd == 2){
+				LDC2_SPI_CS_DEASSERT;
+			} else {
+				issue_warning(WARN_ILLEGAL_LDC_SPI_CS2);
+			}
 			LDC_SPI_RXINT_DISABLE;
 			LDC_SPI_data.data_ready = 1;
 		}

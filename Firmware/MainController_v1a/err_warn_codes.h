@@ -54,6 +54,7 @@
 
 /* Application specific Warnings */
 #define WARN_ILLEGAL_ADC_SM_STATE	0x8110
+#define WARN_ILLEGAL_LDC_SM_STATE	0x8111
 #define WARN_LOW_3V3				0x8200
 #define WARN_HIGH_3V3				0x8201
 #define WARN_LOW_5V0				0x8202
@@ -65,6 +66,12 @@
 #define WARN_LOW_MCU_TEMP			0x820E
 #define WARN_HIGH_MCU_TEMP			0x820F
 #define ESTOP_ACTIVATED				0x8214
+#define WARN_LDC_SPI_HANG			0x8300
+#define WARN_ILLEGAL_LDC_SPI_CS		0x8301
+#define WARN_ILLEGAL_LDC_SPI_CS2	0x8302
+#define WARN_LDC0_OSC_DEAD			0x8303
+#define WARN_LDC1_OSC_DEAD			0x8304
+#define WARN_LDC2_OSC_DEAD			0x8305
 
 
 #endif /* ERR_WARN_CODES_H_ */
