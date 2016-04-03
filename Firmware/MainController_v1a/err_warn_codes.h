@@ -55,6 +55,8 @@
 /* Application specific Warnings */
 #define WARN_ILLEGAL_ADC_SM_STATE	0x8110
 #define WARN_ILLEGAL_LDC_SM_STATE	0x8111
+#define WARN_ILLEGAL_MASS_SM_STATE 	0x8112
+#define WARN_ILLEGAL_OPT_SM_STATE 	0x8113
 #define WARN_LOW_3V3				0x8200
 #define WARN_HIGH_3V3				0x8201
 #define WARN_LOW_5V0				0x8202
