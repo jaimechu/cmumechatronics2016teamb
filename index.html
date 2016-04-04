@@ -23,7 +23,7 @@
         <a href="#requirements">system requirements</a> <br>
         <a href="#design">system design</a> <br>
         <a href="#architecture">functional architecture</a><br>
-        <a href="#implementation">system implementation</a> <br>
+        <a href="implementation/implementation.html">system implementation</a> <br>
         <a href="#project-management">project management</a><br>
         <a href="#media">media</a> <br>
         <a href="#about">about the team</a> <br>
@@ -78,20 +78,20 @@ SYS-R13. Device shall compress plastic and aluminum objects, but should not comp
 <h3>
 <a id="design" class="anchor" href="#system-design" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>System Design </h3> 
 <p> <b>Power</b> |
-  Power is one of the most important aspects of our device. Since the assumption is that our device will be placed in an indoor location, we wanted to utilize outlets, which are commonly found indoors. In order to convert the power from the outlet, we will use an AC/DC converter and a separate 12V power supply in order to ensure that the motors will not draw too much current away from the sensors. 
+  Power is one of the most important aspects of our device. Since the assumption is that our device will be placed in an indoor location, we wanted to utilize outlets, which are commonly found indoors. In order to convert the power from the outlet, we will use two AC/DC converters, one for 12V and another for 24V, in order to ensure that the motors will not draw too much current away from the sensors. 
   <br><br>
   <b>User Interface</b> |
   The clearest way to identify clear information was simply to use an LCD screen in order to list how many of each object was sorted. This was a pure design decision in order to make the user interface easier and more apparent. Buttons will also be used in order to have a clear start and reset to the characterization and/or compacting process and an emergency stop button in case there is an emergency. These decisions were based off of other large machinery with similar potential hazards to users.<br> <br>
-  <b>Input</b> | The trash input hole is roughly 40” off the ground with a door to ensure the user cannot put their hand into anything dangerous. Under the door are rubber flaps which leads to the first of four sensors in the input section. The rest of the input system is designed like a revolving door with four compartments which allow the trash to move through each of the sensing systems while allowing trash to be inputted at an average rate of one item per three seconds or faster. The revolving door will be actuated by a DC motor to push the trash through each compartment, the last of which includes a hole that will allow the trash to drop into the compacting/storing section depending on what the object has been categorized as. The image below depicts the four compartments with the different potential sensors.
+  <b>Input</b> | The trash input hole is roughly 40” off the ground with a door to ensure the user cannot put their hand into anything dangerous. The rest of the input system is designed like a revolving door with four compartments which allow the trash to move through each of the sensing systems while allowing trash to be inputted at an average rate of one item per three seconds or faster. The revolving door will be actuated by a 12V DC motor to push the trash through each compartment, the last of which includes a hole that will allow the trash to drop into the compacting/storing section depending on what the object has been categorized as. The image below depicts the four compartments with the different potential sensors.
    <br> 
      <a href="input.png"><img src="input.png" alt="input" name="input" style="border: 0px solid ;"></a> <br>  <br>
-  <b>Sorting</b> | Based off the flow chart below, the different sensors required to accurately sort are listed. Thus, we have decided to include four different sensors: mass sensor, inductance sensor, force gauge/pressure sensor (to be used with the hot wire), and an optical sensor. Each sensor serves a purpose to help distinguish a certain material. The mass sensor would first be used to help eliminate the possibility of plastic bags, pieces of paper, or other common wrapper items. From the three categories of recyclable materials, metal was the easiest to first distinguish with an inductance sensor. Next, the hot wire, which will be a device similar to a foam cutter on a actuator, which will use force to gauge the stress and strain of a material to distinguish between plastic and Styrofoam. Finally, the optical sensor is used to differentiate between glass and ceramics/tiles/concrete/paper. Since glass must be transparent, the optical sensor would help detect the difference. <br>
+  <b>Sorting</b> | Based off the flow chart below, the different sensors required to accurately sort are listed. Thus, we have decided to include four different sensors: mass sensor, inductance sensor, force gauge/pressure sensor (to be used with the hot wire), and an optical sensor. Each sensor serves a purpose to help distinguish a certain material. The mass sensor would first be used to help eliminate the possibility of plastic bags, pieces of paper, or other common wrapper items. From the three categories of recyclable materials, metal was the easiest to first distinguish with an inductance sensor. Finally, the optical sensor is used to differentiate between glass and ceramics/tiles/concrete/paper. Since glass must be transparent, the optical sensor would help detect the difference. <br>
   <a href="functional.png"><img src="functional.png" alt="functional" name="functional" style="border: 0px solid ;"></a>
   <br>
   <br>
-  <b>Compacting</b> | Compacting will be achieved using a high-torque DC motor that is mounted in the chamber below the sensing unit. The motor will be attached to a shaft that supports a plate that will rotate into a fixed wall. This moving portion will also have its own floor component in order to allow for the integration of compacting and dropping using one actuator. Items that are not compacted will drop into the bottom most chamber using this same mechanism. The bottom chamber will house the trash and recycling receptacle and also be able to rotate using a motor that drives a turntable-style setup. The rotation of this bottom segment allows for the simplification of the compacting chamber. The bins in this chamber are designed to be easily removable to improve the consumer experience.
+  <b>Compacting</b> | Compacting will be achieved using a high-torque 24V DC motor that is mounted in the chamber below the sensing unit. The motor will be attached to a shaft that supports a plate that will rotate into a fixed wall. This moving portion will also have its own floor component in order to allow for the integration of compacting and dropping using one actuator. Items that are not compacted will drop into the bottom most chamber using this same mechanism. The bottom chamber will house the trash and recycling receptacle and also be able to rotate using a motor that drives a turntable-style setup. The rotation of this bottom segment allows for the simplification of the compacting chamber. The bins in this chamber are designed to be easily removable to improve the consumer experience.
   <br>
-    <a href="compactot.png"><img src="compactor.png" alt="compactor" name="compactor" style="border: 0px solid ;"></a> <br>  
+    <a href="compactor.png"><img src="compactor.png" alt="compactor" name="compactor" style="border: 0px solid ;"></a> <br>  
  <br>
  <br>
  <b>Full System</b> | The image below shows the three sections together. The top segment for sensing, the middle section for compacting, and the bottom two doors is used to access the different bins.
@@ -103,10 +103,6 @@ SYS-R13. Device shall compress plastic and aluminum objects, but should not comp
 <p> 
 Based off the design requirements listed above, our team compiled a list of five subsections our project should incorporate, including: power, user interface, input, sorting and compacting, storing and case. In the state chart below, we show a very high-level example of how an input would go through our entire system, utilizing all subsystems. <br>
 <a href="complete_function.png"><img src="complete_function.png" alt="complete_function" name="complete_function" style="border: 0px solid ;"></a>
-
-<br>
-The next image shows how an object would move through the sensing chamber using a fuzze state chart. This shows the object moving from sensor to sensor using the motor. 
-<a href="input_fsm.png"><img src="input_fsm.png" alt="input_fsm" name="input_fsm" style="border: 0px solid ;"></a><br>
 </p>
 
 
@@ -291,6 +287,7 @@ The cyberphysical architecture section will include how the power system and the
 
 <h3>
 <a id="media" class="anchor" href="#media" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Media</h3>
+   <font color = "red"><b>Viewing access.</b> If you are not an authorized personal, please contact jaimechu@andrew.cmu.edu to be granted permission.</font>
 <iframe src="https://drive.google.com/embeddedfolderview?id=0B3BVCvORWhOeNE5XeWdPWjBLcUU#grid" width="800" height="600" frameborder="0"></iframe>
 
 
