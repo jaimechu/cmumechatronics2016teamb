@@ -156,15 +156,11 @@ typedef enum {IDLE,
 			  REPOLL_BRD0
 } ldc_state_t;
 volatile ldc_state_t ldc_current_state = IDLE;
-#define LDC_WAIT_THRESH 250
+#define LDC_WAIT_THRESH 10000//250
 #define LDC_WAIT_THRESH_MIN 150
-#define NUM_LDC_SENSORS 3
-#define LDC_BUF_SIZE 300
 //TODO: Change buffer size
-uint16_t ldc_data_buf[NUM_LDC_SENSORS][LDC_BUF_SIZE];
-uint16_t ldc_buf_ptr0 = 0;
-uint16_t ldc_buf_ptr1 = 0;
-uint16_t ldc_buf_ptr2 = 0;
+uint16_t ldc_data_buf[3] = {0};
+uint8_t ldc_data_buf_ptr = 0;
 
 uint8_t ldc_run = 0;
 uint8_t ldc_stop = 0;
@@ -195,7 +191,7 @@ volatile mass_state_t mass_current_state = MASS_IDLE;
 uint8_t mass_run = 0;
 uint8_t mass_end = 0;
 #define NUM_MASS_SENSORS 4
-#define MASS_BUF_SIZE 300
+#define MASS_BUF_SIZE 100
 #define MASS_WAIT_CNTR 5000
 //TODO: Change buffer size
 uint16_t mass_data_buf[NUM_MASS_SENSORS][MASS_BUF_SIZE];
@@ -214,7 +210,7 @@ volatile opt_state_t opt_current_state = OPT_IDLE;
 uint8_t opt_run = 0;
 uint8_t opt_end = 0;
 #define NUM_OPT_SENSORS 8
-#define OPT_BUF_SIZE 300
+#define OPT_BUF_SIZE 100
 #define OPT_WAIT_CNTR 5000
 //TODO: Change buffer size
 uint16_t opt_data_buf[NUM_OPT_SENSORS][OPT_BUF_SIZE];
@@ -255,24 +251,25 @@ int main(void) {
         opt_task();
         //monitor_task();
     }
+
 /*
 
     uint8_t resp = 0;
     volatile uint16_t prox_data = 0;
     volatile uint8_t buf[16] = {0};
     while(1){
-    	resp = ldc_read_reg(0x00,2);
+    	resp = ldc_read_reg(0x00,0);
     	if(resp != 0x80){
     		while(1);
     	}
-    	ldc_read_reg_multiple(0x00,buf,6,2);
-    	ldc_read_reg_multiple(0x0A,buf,2,2);
-    	ldc_read_reg_multiple(0x20,buf,6,2);
+    	ldc_read_reg_multiple(0x00,buf,6,1);
+    	ldc_read_reg_multiple(0x0A,buf,2,1);
+    	ldc_read_reg_multiple(0x20,buf,6,1);
     	if(buf[1]&OSC_DEAD){
     		uint8_t i = 0;
     		for(i=0; i < 1; i++);
     	}
-    	prox_data = ldc_get_proximity(2);
+    	prox_data = ldc_get_proximity(1);
 
     }
 */
@@ -681,7 +678,6 @@ inline void set_optical_chnl(uint8_t mux_chnl){
 void ldc_task(void){
 	static uint16_t wait_cntr = 0;
 	uint8_t buf[8];
-	uint8_t i = 0;
 	switch(ldc_current_state){
 	case IDLE:										//STATE 4.1
 		//State action:
@@ -705,14 +701,10 @@ void ldc_task(void){
 		//State action
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 2 data
 		if(buf[1]&DRDY){
-			ldc_data_buf[2][ldc_buf_ptr2] = (buf[3]<<8)|buf[2];
-			ldc_buf_ptr2++;
-		}
-		if(ldc_buf_ptr2 >= LDC_BUF_SIZE){
-			ldc_buf_ptr2 = 0;
+			ldc_data_buf[2] = (buf[3]<<8)|buf[2];
 		}
 		if(buf[1]&OSC_DEAD){
-			issue_warning(WARN_LDC2_OSC_DEAD);
+			//issue_warning(WARN_LDC2_OSC_DEAD);
 		}
 		ldc_read_reg_multiple_init(LDC_STATUS,buf,3,0);	//Send request for board 0 data
 		wait_cntr = 0;
@@ -724,10 +716,12 @@ void ldc_task(void){
 		wait_cntr++;
 
 		//State transition
-		if(is_LDC_spi_rx_ready() && wait_cntr > LDC_WAIT_THRESH_MIN){					//T4.4
+		//if(is_LDC_spi_rx_ready() && wait_cntr > LDC_WAIT_THRESH_MIN){					//T4.4
+		if(is_LDC_spi_rx_ready()){					//T4.4
 			ldc_current_state = POLL_BRD1;
 		} else if(wait_cntr > LDC_WAIT_THRESH){		//T4.13
 			ldc_current_state = HANG_ERR;
+			issue_warning(WARN_LDC_SPI_HANG0);
 		} else {									//T4.10
 			ldc_current_state = WAIT_BRD0;
 		}
@@ -735,15 +729,9 @@ void ldc_task(void){
 	case POLL_BRD1:									//STATE 4.4
 		//State action
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 0 data
-
 		if(buf[1]&DRDY){
-
-			ldc_data_buf[0][ldc_buf_ptr0] = (buf[3]<<8)|buf[2];
-			ldc_buf_ptr0 ++;
+			ldc_data_buf[0] = (buf[3]<<8)|buf[2];
 		}
-		if(ldc_buf_ptr0 >= LDC_BUF_SIZE){
-				ldc_buf_ptr0 = 0;
-			}
 		if(buf[1]&OSC_DEAD){
 			issue_warning(WARN_LDC0_OSC_DEAD);
 		}
@@ -756,10 +744,12 @@ void ldc_task(void){
 		//State action
 		wait_cntr++;
 		//State transition
-		if(is_LDC_spi_rx_ready()  && wait_cntr > LDC_WAIT_THRESH_MIN){					//T4.6
+		//if(is_LDC_spi_rx_ready()  && wait_cntr > LDC_WAIT_THRESH_MIN){					//T4.6
+		if(is_LDC_spi_rx_ready()){					//T4.6
 			ldc_current_state = POLL_BRD2;
 		} else if(wait_cntr > LDC_WAIT_THRESH){		//T4.14
 			ldc_current_state = HANG_ERR;
+			issue_warning(WARN_LDC_SPI_HANG1);
 		} else {									//T4.11
 			ldc_current_state = WAIT_BRD1;
 		}
@@ -770,12 +760,8 @@ void ldc_task(void){
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
 		if(buf[1]&DRDY){
 
-			ldc_data_buf[1][ldc_buf_ptr1] = (buf[3]<<8)|buf[2];
-			ldc_buf_ptr1 ++;
+			ldc_data_buf[1] = (buf[3]<<8)|buf[2];
 		}
-		if(ldc_buf_ptr1 >= LDC_BUF_SIZE){
-				ldc_buf_ptr1 = 0;
-			}
 		if(buf[1]&OSC_DEAD){
 			issue_warning(WARN_LDC1_OSC_DEAD);
 		}
@@ -788,12 +774,14 @@ void ldc_task(void){
 		//State action
 		wait_cntr++;
 		//State transition
-		if(ldc_stop && is_LDC_spi_rx_ready()  && wait_cntr > LDC_WAIT_THRESH_MIN){		//T4.8
+		//if(ldc_stop && is_LDC_spi_rx_ready()  && wait_cntr > LDC_WAIT_THRESH_MIN){		//T4.8
+		if(ldc_stop && is_LDC_spi_rx_ready()){		//T4.8
 			ldc_current_state = COMPUTE;
 		} else if(!ldc_stop && is_LDC_spi_rx_ready()){//T4.16
 			ldc_current_state = REPOLL_BRD0;
 		} else if(wait_cntr > LDC_WAIT_THRESH){		//T4.15
 			ldc_current_state = HANG_ERR;
+			issue_warning(WARN_LDC_SPI_HANG2);
 		} else {									//T4.12
 			ldc_current_state = WAIT_BRD2;
 		}
@@ -802,7 +790,7 @@ void ldc_task(void){
 		//State action
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
 		if(buf[1]&DRDY){
-			ldc_data_buf[2][ldc_buf_ptr2] = (buf[3]<<8)|buf[2];
+			ldc_data_buf[2] = (buf[3]<<8)|buf[2];
 		}
 		if(buf[1]&OSC_DEAD){
 			issue_warning(WARN_LDC1_OSC_DEAD);
@@ -818,7 +806,6 @@ void ldc_task(void){
 		break;
 	case HANG_ERR:									//STATE 4.10
 		//State action
-		issue_warning(WARN_LDC_SPI_HANG);
 		end_LDC_SPI_transac();
 		//State transition
 		ldc_current_state = POLL_BRD0;				//T4.18
@@ -1312,10 +1299,9 @@ void debug_task(void){
 		} else if((strncmp(debug_cmd_buf,"le",2)==0) && (debug_cmd_buf_ptr == 2)){
 			//>ldcstop
 			ldc_stop = 1;
-		} else if((strncmp(debug_cmd_buf,"lg0",3)==0) && (debug_cmd_buf_ptr == 3)){
+		} else if((strncmp(debug_cmd_buf,"lg",2)==0) && (debug_cmd_buf_ptr == 2)){
 			//>ldcget
 			uint8_t i = 0;
-			uint16_t prox_data = 0;
 			for(i = 0; i <= 2 ; i++){
 				uint16_t prox_data = ldc_data_buf[i];
 				response_buf[0] = '0';
