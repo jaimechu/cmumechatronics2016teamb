@@ -212,9 +212,17 @@ uint8_t opt_end = 0;
 #define NUM_OPT_SENSORS 8
 #define OPT_BUF_SIZE 100
 #define OPT_WAIT_CNTR 5000
-//TODO: Change buffer size
+#define OPT_CROSS_THRESH 1000
+
+//#define OPTDUMP
+#ifdef OPTDUMP
 uint16_t opt_data_buf[NUM_OPT_SENSORS][OPT_BUF_SIZE];
+#endif
+uint16_t opt_data_time_buf[NUM_OPT_SENSORS] = {0};
+uint16_t opt_data_low_buf[NUM_OPT_SENSORS] = {0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF};
 uint16_t opt_buf_ptr = 0;
+uint16_t opt_low_val = 0;
+uint16_t opt_max_time = 0;
 
 /** END Optical task globals **/
 
@@ -1004,6 +1012,7 @@ void opt_task(void){
 	uint8_t i = 0;
 	static uint16_t wait_cntr = 0;
 
+
 	switch(opt_current_state){
 	case OPT_IDLE:							//STATE 3.1
 		//State action
@@ -1032,7 +1041,7 @@ void opt_task(void){
 		break;
 	case OPT_GET:							//STATE 3.3
 		//State action
-
+#ifdef OPTDUMP
 		for(i=0;i<NUM_OPT_SENSORS;i++){
 			opt_data_buf[i][opt_buf_ptr]= adc_output_buffer[27+i];
 		}
@@ -1040,6 +1049,19 @@ void opt_task(void){
 		if(opt_buf_ptr >= OPT_BUF_SIZE){
 			opt_buf_ptr = 0;
 		}
+
+#endif
+
+		for(i=0;i<NUM_OPT_SENSORS; i++){
+			if(adc_output_buffer[27+i] <= OPT_CROSS_THRESH){
+				opt_data_time_buf[i]++;
+			}
+			if(adc_output_buffer[27+i] < opt_data_low_buf[i]){
+				opt_data_low_buf[i] = adc_output_buffer[27+i];
+			}
+
+		}
+
 		//State transistion
 		if(opt_end == 1){
 			opt_current_state = OPT_COMPUTE;
@@ -1048,8 +1070,24 @@ void opt_task(void){
 		}
 		break;
 	case OPT_COMPUTE:						//STATE 3.4
+		opt_low_val = opt_data_low_buf[0];
+		opt_max_time = opt_data_time_buf[0];
 		//State action
-		//TODO: Dump numbers and check excel
+		for(i=1;i<NUM_OPT_SENSORS;i++){
+			if(opt_data_low_buf[i] < opt_low_val){
+				opt_low_val = opt_data_low_buf[i];
+			}
+			if(opt_data_time_buf[i] > opt_max_time){
+				opt_max_time = opt_data_time_buf[i];
+			}
+			//Clear buffer
+			opt_data_time_buf[i] = 0;
+			opt_data_low_buf[i] = 0xFFFF;
+		}
+		//Clear buffer for [0]th value
+		opt_data_time_buf[0] = 0;
+		opt_data_low_buf[0] = 0xFFFF;
+
 		//State transistion
 		opt_current_state = OPT_IDLE;
 		break;
@@ -1331,14 +1369,32 @@ void debug_task(void){
 				dbg_uart_send_byte(13);		//CR
 				dbg_uart_send_byte(10);		//Line feed
 			}
+
 		} else if((strncmp(debug_cmd_buf,"os",2)==0) && (debug_cmd_buf_ptr == 2)){
 			//>optrun
 			opt_run = 1;
 		} else if((strncmp(debug_cmd_buf,"oe",2)==0) && (debug_cmd_buf_ptr == 2)){
 			//>optstop
 			opt_end = 1;
+
 		} else if((strncmp(debug_cmd_buf,"og",2)==0) && (debug_cmd_buf_ptr == 2)){
 			//>optget
+			response_buf[0] = '0';
+			response_buf[1] = '0';
+			hex2ascii_int(opt_max_time, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+			response_size = 6;
+			dbg_uart_send_string(response_buf,response_size);
+			dbg_uart_send_byte(9);   		//Tab
+
+			response_buf[0] = '0';
+			response_buf[1] = '0';
+			hex2ascii_int(opt_low_val, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+			response_size = 6;
+			dbg_uart_send_string(response_buf,response_size);
+			dbg_uart_send_byte(13);		//CR
+			dbg_uart_send_byte(10);		//Line feed
+
+#ifdef OPTDUMP
 			uint8_t i = 0;
 			uint8_t j = 0;
 			uint8_t resp_buf_ptr = 0;
@@ -1379,7 +1435,7 @@ void debug_task(void){
 				//dbg_uart_send_byte(10);		//Line feed
 			}
 			dbg_uart_send_byte(10);
-
+#endif
 		} else if((strncmp(debug_cmd_buf,"result",6)==0) && (debug_cmd_buf_ptr == 6)){
 			dbg_uart_send_string("plastic",7);
 		} else {
