@@ -234,31 +234,31 @@ int main(void) {
 	setup_clock();
 	setup_dbg_uart();
 	adc_setup();
-	LDC_SPI_setup(0,1);
+	//LDC_SPI_setup(0,1);
 	//monitor_setup();
     // Enable Interrupts
     __bis_SR_register(GIE);
-    ldc_setup(0);
-    ldc_setup(1);
-    ldc_setup(2);
+    //ldc_setup(0);
+    //ldc_setup(1);
+    //ldc_setup(2);
 
     while(1)
     {
         debug_task();
         adc_task();
-        ldc_task();
+        //ldc_task();
         mass_task();
         opt_task();
         //monitor_task();
     }
 
-/*
 
+/*
     uint8_t resp = 0;
     volatile uint16_t prox_data = 0;
     volatile uint8_t buf[16] = {0};
     while(1){
-    	resp = ldc_read_reg(0x00,0);
+    	resp = ldc_read_reg(0x00,1);
     	if(resp != 0x80){
     		while(1);
     	}
@@ -543,8 +543,8 @@ void adc_setup(void){
 	P5SEL |= BIT0;
 	P7SEL |= BIT1 + BIT2 + BIT3;	//P7.0 removed from sequence (reassigned to LDC_CS2)
 	//Setup ADC12
-	ADC12CTL0 = ADC12SHT1_5 +	//96 ADCLK cycles for sampling (775Hz sequence rate)
-				ADC12SHT0_5 +
+	ADC12CTL0 = ADC12SHT1_6 +	//128? maybe(check this) ADCLK cycles for sampling (775Hz sequence rate)
+				ADC12SHT0_6 +
 				ADC12REF2_5V +	//2.5V reference
 				ADC12REFON +	//Reference on
 				ADC12MSC + 		//Trigger sequential conversions automatically
@@ -897,7 +897,7 @@ void ldc_write_reg(uint8_t reg_addr, uint8_t data, uint8_t brd){
 }
 
 void ldc_setup(uint8_t brd){
-	uint8_t resp = 0;
+	volatile uint8_t resp = 0;
 	//Check ID register
 	resp = ldc_read_reg(0x00, brd);
 	if(resp != 0x80){
@@ -1340,7 +1340,33 @@ void debug_task(void){
 		} else if((strncmp(debug_cmd_buf,"og",2)==0) && (debug_cmd_buf_ptr == 2)){
 			//>optget
 			uint8_t i = 0;
+			uint8_t j = 0;
+			uint8_t resp_buf_ptr = 0;
+			/*
+			for(i = opt_buf_ptr; i < OPT_BUF_SIZE; i++){
+				resp_buf_ptr = 0;
+				for(j=0; j < NUM_OPT_SENSORS; j++){
+					hex2ascii_int(opt_data_buf[j][i], &response_buf[resp_buf_ptr], &response_buf[resp_buf_ptr+1], &response_buf[resp_buf_ptr+2], &response_buf[resp_buf_ptr+3]);
+					response_buf[resp_buf_ptr+4] = 9;
+					resp_buf_ptr += 5;
+				}
+				response_buf[resp_buf_ptr] = 10;
+				response_buf[resp_buf_ptr+1] = 13;
+				dbg_uart_send_string(response_buf,resp_buf_ptr+2);
+			}
+			for(i = 0; i < opt_buf_ptr; i++){
+				resp_buf_ptr = 0;
+				for(j=0; j < NUM_OPT_SENSORS; j++){
+					hex2ascii_int(opt_data_buf[j][i], &response_buf[resp_buf_ptr], &response_buf[resp_buf_ptr+1], &response_buf[resp_buf_ptr+2], &response_buf[resp_buf_ptr+3]);
+					response_buf[resp_buf_ptr+4] = 9;
+					resp_buf_ptr += 5;
+				}
+				response_buf[resp_buf_ptr] = 10;
+				response_buf[resp_buf_ptr+1] = 13;
+				dbg_uart_send_string(response_buf,resp_buf_ptr+2);
+			}
 
+			*/
 			for(i = 0; i < NUM_OPT_SENSORS; i++){
 				uint16_t opt_data = opt_data_buf[i][opt_buf_ptr];
 				response_buf[0] = '0';
@@ -1348,10 +1374,14 @@ void debug_task(void){
 				hex2ascii_int(opt_data, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
 				response_size = 6;
 				dbg_uart_send_string(response_buf,response_size);
-				dbg_uart_send_byte(13);		//CR
-				dbg_uart_send_byte(10);		//Line feed
+				dbg_uart_send_byte(9);   		//Tab
+				//dbg_uart_send_byte(13);		//CR
+				//dbg_uart_send_byte(10);		//Line feed
 			}
+			dbg_uart_send_byte(10);
 
+		} else if((strncmp(debug_cmd_buf,"result",6)==0) && (debug_cmd_buf_ptr == 6)){
+			dbg_uart_send_string("plastic",7);
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
