@@ -196,6 +196,9 @@ uint8_t mass_end = 0;
 //TODO: Change buffer size
 uint16_t mass_data_buf[NUM_MASS_SENSORS][MASS_BUF_SIZE];
 uint16_t mass_buf_ptr = 0;
+uint16_t mass_hist_buf[32] = {0};
+uint16_t hist_delta_bin = 0;
+
 
 /** END Mass task globals **/
 
@@ -222,7 +225,11 @@ uint16_t opt_data_time_buf[NUM_OPT_SENSORS] = {0};
 uint16_t opt_data_low_buf[NUM_OPT_SENSORS] = {0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF};
 uint16_t opt_buf_ptr = 0;
 uint16_t opt_low_val = 0;
+//Comment this out for just dumps of values
+#define OPTVAL
+#ifdef OPTVAL
 uint16_t opt_max_time = 0;
+#endif
 
 /** END Optical task globals **/
 
@@ -553,7 +560,7 @@ void adc_setup(void){
 	//Setup ADC12
 	ADC12CTL0 = ADC12SHT1_6 +	//128? maybe(check this) ADCLK cycles for sampling (775Hz sequence rate)
 				ADC12SHT0_6 +
-				ADC12REF2_5V +	//2.5V reference
+				//ADC12REF2_5V +	//2.5V reference
 				ADC12REFON +	//Reference on
 				ADC12MSC + 		//Trigger sequential conversions automatically
 				ADC12ON;		//ADC on
@@ -561,7 +568,7 @@ void adc_setup(void){
 				ADC12SSEL_2 +	//clock source: MCLK
 				ADC12SHP +		//Use sampling timer
 				ADC12CONSEQ_1;	//Channel sequence, no repeat
-	REFCTL0 = REFMSTR + REFVSEL_2 + REFON;	//2.5V reference
+	REFCTL0 = REFMSTR + REFVSEL_0 + REFON;	//1.5V reference
 	return;
 }
 
@@ -580,7 +587,8 @@ void adc_task(void){
 		ADC12MCTL5 = ADC12SREF_0 + ADC12INCH_5;		//A5 Hall pos 3
 		ADC12MCTL6 = ADC12SREF_0 + ADC12INCH_6;		//A6 Hall pos 4
 		ADC12MCTL7 = ADC12SREF_0 + ADC12INCH_7;		//A7 Hall pos 5
-		ADC12MCTL8 = ADC12SREF_0 + ADC12INCH_10;	//A10 Temp
+		ADC12MCTL8 = ADC12SREF_1 + ADC12INCH_10;	//A10 Temp
+		//TODO: Change ADC12REF to 2.5 volts for 3.3V sense
 		ADC12MCTL9 = ADC12EOS + ADC12SREF_0 + ADC12INCH_11;	//A11 3.3V sense, end of sequence
 		ADC12IE = ADC12IE9;						//Enable ADC12 interrupt
 		ADC12CTL0 |= ADC12SC+ADC12ENC;				//Start conversion
@@ -607,7 +615,7 @@ void adc_task(void){
 		set_optical_chnl(adc_ext_mux_ptr);
 		ADC12CTL0 &= ~ADC12ENC;						//Disable conversions to change channel
 		ADC12MCTL0 = ADC12SREF_0 + ADC12INCH_8;		//A8 optical, start of sequence
-		ADC12MCTL1 = ADC12SREF_0 + ADC12INCH_13;		//A13 Hall Bank A
+		ADC12MCTL1 = ADC12SREF_1 + ADC12INCH_13;		//A13 Hall Bank A , changed the SREF
 		ADC12MCTL2 = ADC12SREF_0 + ADC12INCH_14;		//A14 Hall Bank B
 		ADC12MCTL3 = ADC12EOS+ ADC12SREF_0 + ADC12INCH_15;		//A15 Hall Bank C, end of sequence
 		ADC12MCTL9 &= ~ADC12EOS;
@@ -947,7 +955,13 @@ uint16_t ldc_get_proximity(uint8_t brd){
 /** Mass Task Functions **/
 void mass_task(void){
 	uint8_t i = 0;
+	uint8_t hist_index = 0;
 	static uint16_t wait_cntr = 0;
+	uint16_t mass_hist_val1 = 0;
+	uint16_t mass_hist_val2 = 0;
+	uint16_t mass_hist_bin1 = 0;
+	uint16_t mass_hist_bin2 = 0;
+	uint8_t mass_hist_max2_fail;
 
 	switch(mass_current_state){
 	case MASS_IDLE:							//STATE 2.1
@@ -979,11 +993,14 @@ void mass_task(void){
 		//State action
 		for(i=0;i<NUM_MASS_SENSORS;i++){
 			mass_data_buf[i][mass_buf_ptr]= adc_output_buffer[19+i];
+			hist_index = adc_output_buffer[19+i] >> 5;
+			mass_hist_buf[hist_index]++;
 		}
 		mass_buf_ptr++;
 		if(mass_buf_ptr >= MASS_BUF_SIZE){
 			mass_buf_ptr = 0;
 		}
+
 		//State transistion
 		if(mass_end == 1){
 			mass_current_state = MASS_COMPUTE;
@@ -994,7 +1011,36 @@ void mass_task(void){
 		break;
 	case MASS_COMPUTE:						//STATE 2.4
 		//State action
-		//TODO: Dump numbers and check excel
+		mass_hist_bin1 = 0;					// Index of Max Value in Histogram
+		mass_hist_val1 = mass_hist_buf[0]; // Current Max Value in Histogram
+		for(i=1; i<32; i++){
+			if(mass_hist_buf[i] > mass_hist_val1){
+				mass_hist_bin1 = i;
+				mass_hist_val1 = mass_hist_buf[i];
+			}
+		}
+		mass_hist_bin2 = 0;					// Index of Max2 Value in Histogram
+		mass_hist_val2 = 0;
+		mass_hist_max2_fail = 1;
+		for(i=0; i<32; i++){
+			if(mass_hist_buf[i] > mass_hist_val2 && (i+1 != mass_hist_bin1 && i-1 != mass_hist_bin1 && i != mass_hist_bin1)){
+				mass_hist_bin2 = i;
+				mass_hist_val2 = mass_hist_buf[i];
+				mass_hist_max2_fail = 0;
+			}
+			//Clear buffer
+			mass_hist_buf[i] = 0;
+		}
+
+		//Find the delta value
+		if(mass_hist_bin1 == 0 || mass_hist_bin2 == 0){
+			hist_delta_bin = 0;
+		} else if(mass_hist_bin1 > mass_hist_bin2){
+			hist_delta_bin = mass_hist_bin1 - mass_hist_bin2;
+		} else {
+			hist_delta_bin = mass_hist_bin2 - mass_hist_bin1;
+		}
+
 		//State transistion
 		mass_current_state = MASS_IDLE;
 		break;
@@ -1052,6 +1098,7 @@ void opt_task(void){
 
 #endif
 
+#ifdef OPTVAL
 		for(i=0;i<NUM_OPT_SENSORS; i++){
 			if(adc_output_buffer[27+i] <= OPT_CROSS_THRESH){
 				opt_data_time_buf[i]++;
@@ -1061,7 +1108,7 @@ void opt_task(void){
 			}
 
 		}
-
+#endif
 		//State transistion
 		if(opt_end == 1){
 			opt_current_state = OPT_COMPUTE;
@@ -1070,10 +1117,11 @@ void opt_task(void){
 		}
 		break;
 	case OPT_COMPUTE:						//STATE 3.4
-		opt_low_val = opt_data_low_buf[0];
-		opt_max_time = opt_data_time_buf[0];
+#ifdef OPTVAL
+		opt_low_val = opt_data_low_buf[1];
+		opt_max_time = opt_data_time_buf[1];
 		//State action
-		for(i=1;i<NUM_OPT_SENSORS;i++){
+		for(i=2;i<NUM_OPT_SENSORS;i++){
 			if(opt_data_low_buf[i] < opt_low_val){
 				opt_low_val = opt_data_low_buf[i];
 			}
@@ -1087,6 +1135,7 @@ void opt_task(void){
 		//Clear buffer for [0]th value
 		opt_data_time_buf[0] = 0;
 		opt_data_low_buf[0] = 0xFFFF;
+#endif
 
 		//State transistion
 		opt_current_state = OPT_IDLE;
@@ -1366,8 +1415,21 @@ void debug_task(void){
 				hex2ascii_int(mass_data, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
 				response_size = 6;
 				dbg_uart_send_string(response_buf,response_size);
-				dbg_uart_send_byte(13);		//CR
-				dbg_uart_send_byte(10);		//Line feed
+				dbg_uart_send_byte(9);
+			}
+			response_buf[0] = '0';
+			response_buf[1] = '0';
+			hex2ascii_int(hist_delta_bin, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+			response_size = 6;
+			dbg_uart_send_string(response_buf,response_size);
+			dbg_uart_send_byte(13);		//CR
+			dbg_uart_send_byte(10);		//Line feed
+			if(hist_delta_bin == 0){
+				dbg_uart_send_string("Other",5);
+			} else if(hist_delta_bin >= 16) {
+				dbg_uart_send_string("Glass/Heavy Other",17);
+			} else{
+				dbg_uart_send_string("Plastic/Other",13);
 			}
 
 		} else if((strncmp(debug_cmd_buf,"os",2)==0) && (debug_cmd_buf_ptr == 2)){
@@ -1379,6 +1441,7 @@ void debug_task(void){
 
 		} else if((strncmp(debug_cmd_buf,"og",2)==0) && (debug_cmd_buf_ptr == 2)){
 			//>optget
+#ifdef OPTVAL
 			response_buf[0] = '0';
 			response_buf[1] = '0';
 			hex2ascii_int(opt_max_time, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
@@ -1400,7 +1463,7 @@ void debug_task(void){
 			} else{
 				dbg_uart_send_string("Other",5);
 			}
-
+#endif
 #ifdef OPTDUMP
 			uint8_t i = 0;
 			uint8_t j = 0;
@@ -1443,8 +1506,20 @@ void debug_task(void){
 			}
 			dbg_uart_send_byte(10);
 #endif
+#ifdef OPTVAL
 		} else if((strncmp(debug_cmd_buf,"result",6)==0) && (debug_cmd_buf_ptr == 6)){
-			dbg_uart_send_string("plastic",7);
+			if(opt_max_time == 0 && hist_delta_bin == 0){
+				dbg_uart_send_string("Other",5);
+			} else if(opt_max_time < 20 && hist_delta_bin >= 16) {
+				dbg_uart_send_string("Glass",5);
+			} else if (hist_delta_bin >= 16) {
+				dbg_uart_send_string("Glass",5);
+			} else if(opt_max_time < 20) {
+				dbg_uart_send_string("Plastic",7);
+			} else{
+				dbg_uart_send_string("Other",5);
+			}
+#endif
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
