@@ -1393,6 +1393,13 @@ void debug_task(void){
 			dbg_uart_send_string(response_buf,response_size);
 			dbg_uart_send_byte(13);		//CR
 			dbg_uart_send_byte(10);		//Line feed
+			if(opt_max_time == 0){
+				dbg_uart_send_string("Other",5);
+			} else if(opt_max_time < 20) {
+				dbg_uart_send_string("Plastic/Glass",13);
+			} else{
+				dbg_uart_send_string("Other",5);
+			}
 
 #ifdef OPTDUMP
 			uint8_t i = 0;
