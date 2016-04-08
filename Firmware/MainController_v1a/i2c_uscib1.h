@@ -32,6 +32,8 @@ extern volatile struct I2C_data_struct I2C_data;
 #define I2C_RXINT_ENABLE        (UCB1IE |= UCRXIE)
 #define I2C_RXINT_DISABLE       (UCB1IE &= ~UCRXIE)
 
+#define I2C_ADDR_MOTOR_IO		0x41
+
 void i2c_uscib1_setup(void);
 void init_I2C_transac(uint8_t *tx_bytes, uint8_t num_bytes, uint8_t address);
 void end_I2C_transac(void);

@@ -234,6 +234,15 @@ uint16_t opt_max_time = 0;
 
 /** END Optical task globals **/
 
+/** Motor Enable task globals **/
+uint8_t chimney_motor_enable = 0;
+uint8_t bin_motor_enable = 0;
+uint8_t compact_motor_enable = 0;
+uint8_t sort_motor_enable = 0;
+
+void motor_enable_setup(void);
+void i2c_task(void);
+
 /** Main Loop **/
 
 int main(void) {
@@ -258,7 +267,8 @@ int main(void) {
     //ldc_setup(0);
     //ldc_setup(1);
     //ldc_setup(2);
-
+    motor_enable_setup();
+    /*
     uint16_t i;
     uint8_t buf[4] = {65,65,65,65};
     while(1){
@@ -268,7 +278,7 @@ int main(void) {
     	for(i=0; i<50000; i++);
     	buf[0]++;
     }
-
+*/
     while(1)
     {
         debug_task();
@@ -277,6 +287,7 @@ int main(void) {
         mass_task();
         opt_task();
         //monitor_task();
+        i2c_task();
     }
 
 
@@ -1157,6 +1168,51 @@ void opt_task(void){
 
 /** END Optical Task Function **/
 
+/** I2C/Motor Enable Task Function **/
+
+void motor_enable_setup(void){
+	uint8_t buf[4];
+	end_I2C_transac();	//Force stop condition to clear any pending transactions
+	//Configure all I/O of IO expander as outputs
+	buf[0] = 3;
+	buf[1] = 0x00;		//All as outputs
+	init_I2C_transac(buf,2,I2C_ADDR_MOTOR_IO);
+	while(!is_I2C_rx_ready());
+	end_I2C_transac();
+	//Set all IO expander outputs to 0 to disable
+	buf[0] = 1;
+	buf[1] = 0x00;
+	//TODO: See if stepper motor needs to be changed to active low enable
+	init_I2C_transac(buf,2,I2C_ADDR_MOTOR_IO);
+	while(!is_I2C_rx_ready());
+	end_I2C_transac();
+	return;
+}
+
+void i2c_task(void){
+	uint8_t buf[4];
+	if(!is_I2C_busy()){	//Start new transaction
+		buf[0] = 1;
+		buf[1] = (sort_motor_enable<<3)|(bin_motor_enable<<2)|(compact_motor_enable<<1)|chimney_motor_enable;
+		init_I2C_transac(buf,2,I2C_ADDR_MOTOR_IO);
+	} else if(is_I2C_rx_ready()){
+		end_I2C_transac();
+	}
+}
+/** END Motor Enable Task Function **/
+
+/** Chimney Task Function **/
+
+/** END Chimney Task Function **/
+
+/** Bins Function **/
+
+/** END Bins Task Function **/
+
+/** Compacting Task Function **/
+
+/** END Compacting Task Function **/
+
 /** Debug Task functions **/
 
 /* Process debug command functions */
@@ -1529,6 +1585,22 @@ void debug_task(void){
 				dbg_uart_send_string("Other",5);
 			}
 #endif
+		} else if((strncmp(debug_cmd_buf,"m1 en",5)==0) && (debug_cmd_buf_ptr == 5)){
+			chimney_motor_enable = 1;
+		} else if((strncmp(debug_cmd_buf,"m1 dis",6)==0) && (debug_cmd_buf_ptr == 6)){
+			chimney_motor_enable = 0;
+		} else if((strncmp(debug_cmd_buf,"m2 en",5)==0) && (debug_cmd_buf_ptr == 5)){
+			compact_motor_enable = 1;
+		} else if((strncmp(debug_cmd_buf,"m2 dis",6)==0) && (debug_cmd_buf_ptr == 6)){
+			compact_motor_enable = 0;
+		} else if((strncmp(debug_cmd_buf,"m3 en",5)==0) && (debug_cmd_buf_ptr == 5)){
+			bin_motor_enable = 1;
+		} else if((strncmp(debug_cmd_buf,"m3 dis",6)==0) && (debug_cmd_buf_ptr == 6)){
+			bin_motor_enable = 0;
+		} else if((strncmp(debug_cmd_buf,"m4 en",5)==0) && (debug_cmd_buf_ptr == 5)){
+			sort_motor_enable = 1;
+		} else if((strncmp(debug_cmd_buf,"m4 dis",6)==0) && (debug_cmd_buf_ptr == 6)){
+			sort_motor_enable = 0;
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
