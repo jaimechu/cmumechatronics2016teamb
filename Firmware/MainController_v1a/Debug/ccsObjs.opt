@@ -1,1 +1,1 @@
-"./clock_f5.obj" "./dbg_uart_uscia0.obj" "./ldc_spi_uscib0.obj" "./main.obj" "./motor_spi_uscia1.obj" "./utils.obj" "../lnk_msp430f5521.cmd" -l"libmath.a" -l"libc.a" 
+"./clock_f5.obj" "./dbg_uart_uscia0.obj" "./i2c_uscib1.obj" "./ldc_spi_uscib0.obj" "./main.obj" "./motor_spi_uscia1.obj" "./utils.obj" "../lnk_msp430f5521.cmd" -l"libmath.a" -l"libc.a" 

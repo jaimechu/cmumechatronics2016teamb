@@ -16,6 +16,7 @@
 #include "dbg_uart_uscia0.h"
 #include "ldc_spi_uscib0.h"
 #include "ldc1000.h"
+#include "i2c_uscib1.h"
 
 
 /** Debug task macros and globals **/
@@ -249,6 +250,7 @@ int main(void) {
 	setup_clock();
 	setup_dbg_uart();
 	adc_setup();
+	i2c_uscib1_setup();
 	//LDC_SPI_setup(0,1);
 	//monitor_setup();
     // Enable Interrupts
@@ -256,6 +258,16 @@ int main(void) {
     //ldc_setup(0);
     //ldc_setup(1);
     //ldc_setup(2);
+
+    uint16_t i;
+    uint8_t buf[4] = {65,65,65,65};
+    while(1){
+    	init_I2C_transac(buf,1,0x28);
+    	while(!is_I2C_rx_ready());
+    	end_I2C_transac();
+    	for(i=0; i<50000; i++);
+    	buf[0]++;
+    }
 
     while(1)
     {
@@ -961,7 +973,6 @@ void mass_task(void){
 	uint16_t mass_hist_val2 = 0;
 	uint16_t mass_hist_bin1 = 0;
 	uint16_t mass_hist_bin2 = 0;
-	uint8_t mass_hist_max2_fail;
 
 	switch(mass_current_state){
 	case MASS_IDLE:							//STATE 2.1
@@ -1021,12 +1032,10 @@ void mass_task(void){
 		}
 		mass_hist_bin2 = 0;					// Index of Max2 Value in Histogram
 		mass_hist_val2 = 0;
-		mass_hist_max2_fail = 1;
 		for(i=0; i<32; i++){
 			if(mass_hist_buf[i] > mass_hist_val2 && (i+1 != mass_hist_bin1 && i-1 != mass_hist_bin1 && i != mass_hist_bin1)){
 				mass_hist_bin2 = i;
 				mass_hist_val2 = mass_hist_buf[i];
-				mass_hist_max2_fail = 0;
 			}
 			//Clear buffer
 			mass_hist_buf[i] = 0;
@@ -1658,6 +1667,44 @@ __interrupt void USCIB0_ISR(void){
 	} else {
 		issue_warning(WARN_USCIB0_INT_ILLEGAL_FLAG);
 	}
+}
+
+/* I2C USCIB1 Interrupt Handler
+ *
+ */
+#pragma vector = USCI_B1_VECTOR
+__interrupt void USCI_B1_ISR(void){
+	switch(__even_in_range(UCB1IV,12)){
+	case  0: 		                           // Vector  0: No interrupts
+		break;
+	case  2: 		                           // Vector  2: ALIFG
+		UCB1CTL1 |= UCTXSTP;				//Generate stop
+		issue_warning(WARN_I2C_ARB_LOST);
+		break;
+	case  4: 		                           // Vector  4: NACKIFG
+		UCB1CTL1 |= UCTXSTP;				//Generate stop
+		issue_warning(WARN_I2C_NACK);
+		break;
+	case  6: 		                           // Vector  6: STTIFG
+		break;
+	case  8: 		                           // Vector  8: STPIFG
+		break;
+	case 10: 		                           // Vector 10: RXIFG
+		break;
+	case 12:                                  // Vector 12: TXIFG
+		if(I2C_data.tx_ptr >= I2C_data.num_bytes){	//Done transmitting data, send stop
+			UCB1CTL1 |= UCTXSTP;
+			I2C_TXINT_DISABLE;
+			I2C_data.data_ready = 1;
+		} else {
+			UCB1TXBUF = I2C_data.tx_bytes[I2C_data.tx_ptr];
+			I2C_data.tx_ptr++;
+		}
+	    break;
+	  default:
+		  issue_warning(WARN_I2C_ILLEGAL_INTVECTOR);
+		  break;
+	  }
 }
 
 /* System Unmaskable Interrupt Handler
