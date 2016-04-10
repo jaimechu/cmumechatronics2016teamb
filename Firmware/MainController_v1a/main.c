@@ -17,6 +17,7 @@
 #include "ldc_spi_uscib0.h"
 #include "ldc1000.h"
 #include "i2c_uscib1.h"
+#include "motor.h"
 
 
 /** Debug task macros and globals **/
@@ -138,8 +139,6 @@ uint8_t adc_seq2 = 0;					//Flag to indicate if adc sm is in seq1 or seq2
 
 inline void set_hall_A_chnl(uint8_t mux_chnl);
 inline void set_hall_B_chnl(uint8_t mux_chnl);
-inline void set_hall_C_chnl(uint8_t mux_chnl);
-inline void set_optical_chnl(uint8_t mux_chnl);
 
 /** END ADC task globals **/
 
@@ -246,6 +245,7 @@ void i2c_task(void);
 /** Main Loop **/
 
 int main(void) {
+
 	WDTCTL = WDTPW + WDTHOLD;   // Stop watchdog timer
 	P1DIR |= BIT0;	//Debug LED1
 	P2DIR |= BIT2;	//Debug LED2
@@ -260,6 +260,7 @@ int main(void) {
 	setup_dbg_uart();
 	adc_setup();
 	i2c_uscib1_setup();
+	motor_pwm_setup();
 	//LDC_SPI_setup(0,1);
 	//monitor_setup();
     // Enable Interrupts
@@ -567,13 +568,6 @@ void adc_setup(void){
 	//HALL_B_SEL1: P8.0
 	//HALL_B_SEL2: P8.1
 	//HALL_B_SEL3: P8.2
-	//HALL_C_SEL1: P2.1
-	//HALL_C_SEL2: P2.3
-	//HALL_C_SEL3: P2.4
-	//OPT_SEL1: P2.5
-	//OPT_SEL2: P2.6
-	//OPT_SEL3: P2.7
-	P2DIR |= BIT1+BIT3+BIT4+BIT5+BIT6+BIT7;
 	P5DIR |= BIT1+BIT4+BIT5;
 	P8DIR |= BIT0+BIT1+BIT2;
 	//Setup ADC pins to use ADC
@@ -608,12 +602,10 @@ void adc_task(void){
 		ADC12MCTL3 = ADC12SREF_0 + ADC12INCH_3;		//A3 Hall pos 1
 		ADC12MCTL4 = ADC12SREF_0 + ADC12INCH_4;		//A4 Hall pos 2
 		ADC12MCTL5 = ADC12SREF_0 + ADC12INCH_5;		//A5 Hall pos 3
-		ADC12MCTL6 = ADC12SREF_0 + ADC12INCH_6;		//A6 Hall pos 4
-		ADC12MCTL7 = ADC12SREF_0 + ADC12INCH_7;		//A7 Hall pos 5
-		ADC12MCTL8 = ADC12SREF_1 + ADC12INCH_10;	//A10 Temp
+		ADC12MCTL6 = ADC12SREF_1 + ADC12INCH_10;	//A10 Temp
 		//TODO: Change ADC12REF to 2.5 volts for 3.3V sense
-		ADC12MCTL9 = ADC12EOS + ADC12SREF_0 + ADC12INCH_11;	//A11 3.3V sense, end of sequence
-		ADC12IE = ADC12IE9;						//Enable ADC12 interrupt
+		ADC12MCTL7 = ADC12EOS + ADC12SREF_0 + ADC12INCH_11;	//A11 3.3V sense, end of sequence
+		ADC12IE = ADC12IE7;						//Enable ADC12 interrupt
 		ADC12CTL0 |= ADC12SC+ADC12ENC;				//Start conversion
 		//State transition
 		adc_current_state = WAIT_SEQ1;				//T8.1
@@ -634,15 +626,11 @@ void adc_task(void){
 		adc_ext_mux_ptr = 0;
 		set_hall_A_chnl(adc_ext_mux_ptr);	//Reset external muxes
 		set_hall_B_chnl(adc_ext_mux_ptr);
-		set_hall_C_chnl(adc_ext_mux_ptr);
-		set_optical_chnl(adc_ext_mux_ptr);
 		ADC12CTL0 &= ~ADC12ENC;						//Disable conversions to change channel
-		ADC12MCTL0 = ADC12SREF_0 + ADC12INCH_8;		//A8 optical, start of sequence
-		ADC12MCTL1 = ADC12SREF_1 + ADC12INCH_13;		//A13 Hall Bank A , changed the SREF
-		ADC12MCTL2 = ADC12SREF_0 + ADC12INCH_14;		//A14 Hall Bank B
-		ADC12MCTL3 = ADC12EOS+ ADC12SREF_0 + ADC12INCH_15;		//A15 Hall Bank C, end of sequence
-		ADC12MCTL9 &= ~ADC12EOS;
-		ADC12IE = ADC12IE3;						//Enable ADC12 interrupt
+		ADC12MCTL0 = ADC12SREF_1 + ADC12INCH_13;		//A13 Hall Bank A , changed the SREF, end of sequence
+		ADC12MCTL1 = ADC12EOS + ADC12SREF_0 + ADC12INCH_14;		//A14 Hall Bank B
+		ADC12MCTL7 &= ~ADC12EOS;
+		ADC12IE = ADC12IE1;						//Enable ADC12 interrupt
 		ADC12CTL0 |= ADC12SC+ADC12ENC;				//Start conversion
 		adc12_int_done_flag = 0;
 		//State transition
@@ -688,24 +676,6 @@ inline void set_hall_B_chnl(uint8_t mux_chnl){
 	//HALL_B_SEL2: P8.1
 	//HALL_B_SEL3: P8.2
 	P8OUT = mux_chnl&0x7;
-	return;
-}
-
-inline void set_hall_C_chnl(uint8_t mux_chnl){
-	//HALL_C_SEL1: P2.1
-	//HALL_C_SEL2: P2.3
-	//HALL_C_SEL3: P2.4
-	P2OUT = (P2OUT&(~BIT1))|((mux_chnl&BIT0)<<1);
-	P2OUT = (P2OUT&(~BIT3))|((mux_chnl&BIT1)<<2);
-	P2OUT = (P2OUT&(~BIT4))|((mux_chnl&BIT2)<<2);
-	return;
-}
-
-inline void set_optical_chnl(uint8_t mux_chnl){
-	//OPT_SEL1: P2.5
-	//OPT_SEL2: P2.6
-	//OPT_SEL3: P2.7
-	P2OUT = (P2OUT&0x1F)|((mux_chnl&0x7)<<5);
 	return;
 }
 
@@ -1601,6 +1571,39 @@ void debug_task(void){
 			sort_motor_enable = 1;
 		} else if((strncmp(debug_cmd_buf,"m4 dis",6)==0) && (debug_cmd_buf_ptr == 6)){
 			sort_motor_enable = 0;
+		} else if((strncmp(debug_cmd_buf,"m1 r",4)==0) && (debug_cmd_buf_ptr == 4)){
+			set_chimney_direction(MOT_CW);
+		} else if((strncmp(debug_cmd_buf,"m1 l",4)==0) && (debug_cmd_buf_ptr == 4)){
+			set_chimney_direction(MOT_CCW);
+		} else if((strncmp(debug_cmd_buf,"m2 r",4)==0) && (debug_cmd_buf_ptr == 4)){
+			set_compact_direction(MOT_CW);
+		} else if((strncmp(debug_cmd_buf,"m2 l",4)==0) && (debug_cmd_buf_ptr == 4)){
+			set_compact_direction(MOT_CCW);
+		} else if((strncmp(debug_cmd_buf,"m3 r",4)==0) && (debug_cmd_buf_ptr == 4)){
+			set_bin_direction(MOT_CW);
+		} else if((strncmp(debug_cmd_buf,"m3 l",4)==0) && (debug_cmd_buf_ptr == 4)){
+			set_bin_direction(MOT_CCW);
+		} else if((strncmp(debug_cmd_buf,"m1s",3)==0) && (debug_cmd_buf_ptr == 7)){
+			//>m1s <4-hex char speed>
+			//>m1s 9C3
+			uint16_t speed;
+			speed = ascii2hex_byte(debug_cmd_buf[5], debug_cmd_buf[6]);
+			speed |= (ascii2hex_byte('0',debug_cmd_buf[4])<<8);
+			set_chimney_speed(speed);
+		} else if((strncmp(debug_cmd_buf,"m2s",3)==0) && (debug_cmd_buf_ptr == 7)){
+			//>m2s <4-hex char speed>
+			//>m2s 9C3
+			uint16_t speed;
+			speed = ascii2hex_byte(debug_cmd_buf[5], debug_cmd_buf[6]);
+			speed |= (ascii2hex_byte('0',debug_cmd_buf[4])<<8);
+			set_compact_speed(speed);
+		} else if((strncmp(debug_cmd_buf,"m3s",3)==0) && (debug_cmd_buf_ptr == 7)){
+			//>m3s <4-hex char speed>
+			//>m3s 9C3
+			uint16_t speed;
+			speed = ascii2hex_byte(debug_cmd_buf[5], debug_cmd_buf[6]);
+			speed |= (ascii2hex_byte('0',debug_cmd_buf[4])<<8);
+			set_bin_speed(speed);
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
@@ -1628,25 +1631,25 @@ __interrupt void ADC12_ISR(void){
 	 * 0: A0 (5Vsense)
 	 * 1: A1 (12Vsense)
 	 * 2: A2 (6V Analog sense)
-	 * 3: A11 (3.3V sense)
-	 * 4: A10 (MCU temp)
+	 * 3: A10 (MCU temp)
+	 * 4: A11 (3.3V sense)
 	 * 5: A3 (Hall Position Encoder 1)
 	 * 6: A4 (Hall Position Encoder 2)
 	 * 7: A5 (Hall Position Encoder 3)
-	 * 8: A6 (Hall Position Encoder 4)
-	 * 9: A7 (Hall Position Encoder 5)
+	 * 8: A6 (Hall Position Encoder 4) UNUSED
+	 * 9: A7 (Hall Position Encoder 5) UNUSED
 	 * 10: A12 (Hall Position Encoder 6) UNUSED: Reassigned to LDC_CS2
-	 * 11-18: A8 (Optical bank, 8 channels)
+	 * 11-18: A8 (Optical bank, 8 channels) UNUSED
 	 * 19-26: A13 (Hall Bank A, 8 channels)
 	 * 27-34: A14 (Hall Bank B, 8 channels)
-	 * 35-42: A15 (Hall Bank C, 8 channels)
+	 * 35-42: A15 (Hall Bank C, 8 channels) UNUSED
 	 * Note: A9 is used as digital output
 	 */
 	if(adc_seq2){
-		adc_internal_buffer[11+adc_ext_mux_ptr] = ADC12MEM[0];	//Gather conversions
-		adc_internal_buffer[19+adc_ext_mux_ptr] = ADC12MEM[1];
-		adc_internal_buffer[27+adc_ext_mux_ptr] = ADC12MEM[2];
-		adc_internal_buffer[35+adc_ext_mux_ptr] = ADC12MEM[3];
+		//adc_internal_buffer[11+adc_ext_mux_ptr] = ADC12MEM[0];	//Gather conversions
+		adc_internal_buffer[19+adc_ext_mux_ptr] = ADC12MEM[0];
+		adc_internal_buffer[27+adc_ext_mux_ptr] = ADC12MEM[1];
+		//adc_internal_buffer[35+adc_ext_mux_ptr] = ADC12MEM[3];
 		adc_ext_mux_ptr++;
 		if(adc_ext_mux_ptr > 7){
 			adc12_int_done_flag = 1;			//Done with conversions, return to sm
@@ -1655,20 +1658,16 @@ __interrupt void ADC12_ISR(void){
 			ADC12CTL0 |= ADC12SC;	//Start conversion for next sequence
 			set_hall_A_chnl(adc_ext_mux_ptr);
 			set_hall_B_chnl(adc_ext_mux_ptr);
-			set_hall_C_chnl(adc_ext_mux_ptr);
-			set_optical_chnl(adc_ext_mux_ptr);
 		}
 	} else { //Store conversions into internal buffer
-		adc_internal_buffer[0] = ADC12MEM[0];
-		adc_internal_buffer[1] = ADC12MEM[1];
-		adc_internal_buffer[2] = ADC12MEM[2];
-		adc_internal_buffer[3] = ADC12MEM[3];
-		adc_internal_buffer[4] = ADC12MEM[4];
-		adc_internal_buffer[5] = ADC12MEM[5];
-		adc_internal_buffer[6] = ADC12MEM[6];
-		adc_internal_buffer[7] = ADC12MEM[7];
-		adc_internal_buffer[8] = ADC12MEM[8];
-		adc_internal_buffer[9] = ADC12MEM[9];
+		adc_internal_buffer[0] = ADC12MEM[0];	//5Vsense
+		adc_internal_buffer[1] = ADC12MEM[1];	//12Vsense
+		adc_internal_buffer[2] = ADC12MEM[2];	//6VA sense
+		adc_internal_buffer[3] = ADC12MEM[3];	//Hall pos 1
+		adc_internal_buffer[4] = ADC12MEM[4];	//Hall pos 2
+		adc_internal_buffer[5] = ADC12MEM[5];	//Hall pos 3
+		adc_internal_buffer[6] = ADC12MEM[6];	//Temp
+		adc_internal_buffer[7] = ADC12MEM[7];	//3.3V sense
 		adc12_int_done_flag = 1;
 	}
 

@@ -13,6 +13,7 @@ main.obj: ../dbg_uart_uscia0.h
 main.obj: ../ldc_spi_uscib0.h
 main.obj: ../ldc1000.h
 main.obj: ../i2c_uscib1.h
+main.obj: ../motor.h
 
 ../main.c: 
 C:/ti/ccsv6/ccs_base/msp430/include/msp430.h: 
@@ -27,3 +28,4 @@ C:/ti/ccsv6/tools/compiler/ti-cgt-msp430_4.4.3/include/intrinsics_legacy_undefs.
 ../ldc_spi_uscib0.h: 
 ../ldc1000.h: 
 ../i2c_uscib1.h: 
+../motor.h: 
