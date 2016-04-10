@@ -18,6 +18,7 @@
 #include "ldc1000.h"
 #include "i2c_uscib1.h"
 #include "motor.h"
+#include "motor_spi_uscia1.h"
 
 
 /** Debug task macros and globals **/
@@ -231,6 +232,8 @@ uint16_t opt_low_val = 0;
 uint16_t opt_max_time = 0;
 #endif
 
+
+
 /** END Optical task globals **/
 
 /** Motor Enable task globals **/
@@ -241,6 +244,26 @@ uint8_t sort_motor_enable = 0;
 
 void motor_enable_setup(void);
 void i2c_task(void);
+void motor_spi_task(void);
+
+typedef enum  {MOTOR_INIT,
+			   MOTOR1_READ,
+			   MOTOR2_READ,
+			   MOTOR3_READ,
+			   MOTOR_WAIT1,
+			   MOTOR_WAIT2,
+			   MOTOR_WAIT3,
+			   MOTOR_WAIT4} motor_state_t;
+volatile motor_state_t motorCurrState = MOTOR_INIT;
+
+void check_chimney_resp(uint16_t resp);
+void check_compact_resp(uint16_t resp);
+void check_bin_resp(uint16_t resp);
+
+//TODO: Fix the chimney and bin cmd
+#define CHIMNEY_CMD 0x0C04
+#define COMPACT_CMD 0x0C04
+#define BIN_CMD 0x0C04
 
 /** Main Loop **/
 
@@ -261,6 +284,8 @@ int main(void) {
 	adc_setup();
 	i2c_uscib1_setup();
 	motor_pwm_setup();
+	MOTOR_SPI_setup(0,0); // Idle low, output on rising
+
 	//LDC_SPI_setup(0,1);
 	//monitor_setup();
     // Enable Interrupts
@@ -269,6 +294,7 @@ int main(void) {
     //ldc_setup(1);
     //ldc_setup(2);
     motor_enable_setup();
+
     /*
     uint16_t i;
     uint8_t buf[4] = {65,65,65,65};
@@ -289,6 +315,7 @@ int main(void) {
         opt_task();
         //monitor_task();
         i2c_task();
+        motor_spi_task();
     }
 
 
@@ -1160,15 +1187,151 @@ void motor_enable_setup(void){
 }
 
 void i2c_task(void){
+	uint16_t i = 0;
 	uint8_t buf[4];
 	if(!is_I2C_busy()){	//Start new transaction
+		for(i=0;i<0xFFFF;i++);
 		buf[0] = 1;
 		buf[1] = (sort_motor_enable<<3)|(bin_motor_enable<<2)|(compact_motor_enable<<1)|chimney_motor_enable;
 		init_I2C_transac(buf,2,I2C_ADDR_MOTOR_IO);
+
 	} else if(is_I2C_rx_ready()){
 		end_I2C_transac();
 	}
 }
+
+void motor_spi_task(void){
+	uint16_t resp = 0;
+
+	switch(motorCurrState){
+		case MOTOR_INIT:							//STATE 10.1
+			//State action
+			init_motor_SPI_transac(CHIMNEY_CMD, 1);
+			//State transistion
+			motorCurrState = MOTOR_WAIT1;
+			break;
+		case MOTOR_WAIT1:
+			//State action
+			//Do nothing
+			//State transistion
+			if(is_motor_spi_rx_ready()){
+				motorCurrState = MOTOR1_READ;
+			} else {
+				motorCurrState = MOTOR_WAIT1;
+			}
+			break;
+		case MOTOR1_READ: 						//STATE 10.2
+			//State action
+			resp = get_motor_SPI_rx_data();
+			check_chimney_resp(resp);
+			init_motor_SPI_transac(COMPACT_CMD, 2);
+			//State transistion
+			motorCurrState = MOTOR_WAIT2;
+			break;
+		case MOTOR_WAIT2:
+			//State action
+			//Do nothing
+			//State transistion
+			if(is_motor_spi_rx_ready()){
+				motorCurrState = MOTOR2_READ;
+			}else {
+				motorCurrState = MOTOR_WAIT2;
+			}
+
+			break;
+		case MOTOR2_READ:							//STATE 10.3
+			//State action
+			resp = get_motor_SPI_rx_data();
+			check_compact_resp(resp);
+			init_motor_SPI_transac(BIN_CMD, 3);
+			//State transistion
+			motorCurrState = MOTOR_WAIT3;
+			break;
+		case MOTOR_WAIT3:
+			//State action
+			//Do nothing
+			//State transistion
+			if(is_motor_spi_rx_ready()){
+				motorCurrState = MOTOR3_READ;
+			}else {
+				motorCurrState = MOTOR_WAIT3;
+			}
+			break;
+		case MOTOR3_READ:						//STATE 10.4
+			//State action
+			resp = get_motor_SPI_rx_data();
+			check_bin_resp(resp);
+			init_motor_SPI_transac(CHIMNEY_CMD, 1);
+			//State transistion
+			motorCurrState = MOTOR_WAIT4;
+			break;
+		case MOTOR_WAIT4:
+			//State action
+			//Do nothing
+			//State transistion
+			if(is_motor_spi_rx_ready()){
+				motorCurrState = MOTOR1_READ;
+			}else {
+				motorCurrState = MOTOR_WAIT4;
+			}
+			break;
+		default:
+			issue_warning(WARN_ILLEGAL_MOT_SM_STATE);
+			break;
+		}
+	return;
+}
+
+void check_chimney_resp(uint16_t resp){
+	if(resp & BIT0) issue_warning(WARN_OPEN_CHIMNEY_OL_OFF);
+	if(resp & BIT1) issue_warning(WARN_OPEN_CHIMNEY_OL_ON);
+	if(resp & BIT2) issue_warning(WARN_OPEN_CHIMNEY_VS_UV);
+	if(resp & BIT3) issue_warning(WARN_OPEN_CHIMNEY_VDD_OV);
+	if(resp & BIT4) issue_warning(WARN_OPEN_CHIMNEY_ILIM);
+	if(resp & BIT5) issue_warning(WARN_OPEN_CHIMNEY_TWARN);
+	if(resp & BIT6) issue_warning(WARN_OPEN_CHIMNEY_TSD);
+	if(resp & BIT8) issue_warning(WARN_OPEN_CHIMNEY_OC_LS1);
+	if(resp & BIT9) issue_warning(WARN_OPEN_CHIMNEY_OC_LS2);
+	if(resp & BITA) issue_warning(WARN_OPEN_CHIMNEY_OC_HS1);
+	if(resp & BITB) issue_warning(WARN_OPEN_CHIMNEY_OC_HS2);
+	if(resp & BITE) issue_warning(WARN_OPEN_CHIMNEY_SGND_OFF);
+	if(resp & BITF) issue_warning(WARN_OPEN_CHIMNEY_SBAT_OFF);
+}
+
+
+void check_compact_resp(uint16_t resp){
+	if(resp & BIT0) issue_warning(WARN_OPEN_COMPACT_OL_OFF);
+	if(resp & BIT1) issue_warning(WARN_OPEN_COMPACT_OL_ON);
+	if(resp & BIT2) issue_warning(WARN_OPEN_COMPACT_VS_UV);
+	if(resp & BIT3) issue_warning(WARN_OPEN_COMPACT_VDD_OV);
+	//if(resp & BIT4) issue_warning(WARN_OPEN_COMPACT_ILIM);
+	if(resp & BIT5) issue_warning(WARN_OPEN_COMPACT_TWARN);
+	if(resp & BIT6) issue_warning(WARN_OPEN_COMPACT_TSD);
+	if(resp & BIT8) issue_warning(WARN_OPEN_COMPACT_OC_LS1);
+	if(resp & BIT9) issue_warning(WARN_OPEN_COMPACT_OC_LS2);
+	if(resp & BITA) issue_warning(WARN_OPEN_COMPACT_OC_HS1);
+	if(resp & BITB) issue_warning(WARN_OPEN_COMPACT_OC_HS2);
+	if(resp & BITE) issue_warning(WARN_OPEN_COMPACT_SGND_OFF);
+	if(resp & BITF) issue_warning(WARN_OPEN_COMPACT_SBAT_OFF);
+}
+
+void check_bin_resp(uint16_t resp){
+	if(resp & BIT0) issue_warning(WARN_OPEN_BIN_OL_OFF);
+	if(resp & BIT1) issue_warning(WARN_OPEN_BIN_OL_ON);
+	if(resp & BIT2) issue_warning(WARN_OPEN_BIN_VS_UV);
+	if(resp & BIT3) issue_warning(WARN_OPEN_BIN_VDD_OV);
+	if(resp & BIT4) issue_warning(WARN_OPEN_BIN_ILIM);
+	if(resp & BIT5) issue_warning(WARN_OPEN_BIN_TWARN);
+	if(resp & BIT6) issue_warning(WARN_OPEN_BIN_TSD);
+	if(resp & BIT8) issue_warning(WARN_OPEN_BIN_OC_LS1);
+	if(resp & BIT9) issue_warning(WARN_OPEN_BIN_OC_LS2);
+	if(resp & BITA) issue_warning(WARN_OPEN_BIN_OC_HS1);
+	if(resp & BITB) issue_warning(WARN_OPEN_BIN_OC_HS2);
+	if(resp & BITE) issue_warning(WARN_OPEN_BIN_SGND_OFF);
+	if(resp & BITF) issue_warning(WARN_OPEN_BIN_SBAT_OFF);
+}
+
+
 /** END Motor Enable Task Function **/
 
 /** Chimney Task Function **/
@@ -1703,6 +1866,36 @@ __interrupt void USCIA0_ISR(void){
 		}
 	} else {
 		issue_warning(WARN_USCIA0_INT_ILLEGAL_FLAG);
+	}
+}
+
+#pragma vector=USCI_A1_VECTOR
+__interrupt void USCIA1_ISR(void){
+	if((UCA1IE & UCRXIE) && (UCA1IFG & UCRXIFG)){				//SPI Rxbuf full interrupt
+		MOTOR_SPI_data.rx_bytes[MOTOR_SPI_data.rx_ptr] = UCA1RXBUF;	//Get latest byte from HW
+		MOTOR_SPI_data.rx_ptr++;									//Flag reset with buffer read
+		if(MOTOR_SPI_data.rx_ptr >= MOTOR_SPI_data.num_bytes){		//Done reading data
+			if(MOTOR_SPI_data.motor == 1){							//Disable CS and disable interrupt
+				MOTOR1_SPI_CS_DEASSERT;
+			} else if(MOTOR_SPI_data.motor == 2){
+				MOTOR2_SPI_CS_DEASSERT;
+			} else if(MOTOR_SPI_data.motor == 3){
+				MOTOR3_SPI_CS_DEASSERT;
+			} else {
+				issue_warning(WARN_ILLEGAL_MOTOR_SPI_CS2);
+			}
+			MOTOR_SPI_RXINT_DISABLE;
+			MOTOR_SPI_data.data_ready = 1;
+		}
+
+	} else if((UCA1IE & UCTXIE) && (UCA1IFG & UCTXIFG)){
+		UCA1TXBUF = MOTOR_SPI_data.tx_bytes[MOTOR_SPI_data.tx_ptr];	//Load next byte into HW buffer
+		MOTOR_SPI_data.tx_ptr++;								//Flag reset with buffer write
+		if(MOTOR_SPI_data.tx_ptr >= MOTOR_SPI_data.num_bytes){		//Done transmitting data
+			MOTOR_SPI_TXINT_DISABLE;							//Disable Tx interrupt
+		}
+	} else {
+		issue_warning(WARN_USCIA1_INT_ILLEGAL_FLAG);
 	}
 }
 

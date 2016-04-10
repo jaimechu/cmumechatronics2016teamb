@@ -32,6 +32,12 @@ volatile struct I2C_data_struct I2C_data = {
  * Master, 100kHz baud rate
  */
 void i2c_uscib1_setup(void){
+	//Toggle SCL to release bus
+	P4DIR |= BIT2;
+	while(!(P4IN &= BIT1)){
+		P4OUT ^= BIT2;
+	}
+	P4DIR &= ~BIT2;
 	//Assign I2C pins
 	P4SEL |= BIT1 + BIT2;	//SDA and SCL mapped to default PMAP configuration
 	UCB1CTL1 |= UCSWRST;	//Enable SW reset

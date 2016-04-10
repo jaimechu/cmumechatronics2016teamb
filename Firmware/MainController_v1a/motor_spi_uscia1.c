@@ -47,21 +47,22 @@ volatile struct MOTOR_SPI_data_struct MOTOR_SPI_data = {
  * Clock Source: SMCLK (25MHz)/
  * idle: When idle, clock is low (0) or high (1)
  * edge: write bus on idle-active (0) or active-idle (1) edge
+ * LSB first
  */
 
-void motor_SPI_setup(uint8_t idle, uint8_t edge){
+void MOTOR_SPI_setup(uint8_t idle, uint8_t edge){
 	//Hold USCI in reset for setup
 	UCA1CTL1 |= UCSWRST;
 	UCA1CTL0 = (edge<<7) |	//Clock phase
 			   (idle<<6) | 	//Clock polarity
-			   UCMSB     |	//MSB first
 			   UCMST     |	//Master
-			   UCMODE_0;	//3-pin SPI
+			   UCMODE_0  |	//3-pin SPI
+			   UCSYNC;
 
 	UCA1CTL1 = UCSSEL_2  |	//Source from SMCLK
 			   UCSWRST;		//Keep USCI in reset
 
-	UCA1BR0 = 16;			//No divider, run at ~1MHz
+	UCA1BR0 = 250;			//No divider, run at ~1MHz
 
 	//Enable use of SPI pins MOSI, MISO, SCK
 	P4SEL |= BIT0 | BIT3 | BIT4;
@@ -81,18 +82,12 @@ void motor_SPI_setup(uint8_t idle, uint8_t edge){
 }
 
 
-/* SM loads SPI datastructure, start transaction
- *
- */
-
-void init_SPI_transac(uint8_t *tx_bytes, uint8_t num_bytes, uint8_t motor){
+void init_motor_SPI_transac(uint16_t CFG_REG, uint8_t motor){
 	//TODO: Check if datastructure already in use
 	MOTOR_SPI_data.in_use_flag = 1;
-	uint8_t i;
-	for(i = 0; i < num_bytes; i++){			//Copy Tx data to SPI datastructure
-		MOTOR_SPI_data.tx_bytes[i] = tx_bytes[i];
-	}
-	MOTOR_SPI_data.num_bytes = num_bytes;			//Copy Transaction size to SPI datastructure
+	MOTOR_SPI_data.tx_bytes[0] = (uint8_t)((CFG_REG >> 8) & 0xFF);
+	MOTOR_SPI_data.tx_bytes[1] = (uint8_t)(CFG_REG & 0xFF);
+	MOTOR_SPI_data.num_bytes = 2;
 	MOTOR_SPI_data.tx_ptr = 0;					//Reset pointers
 	MOTOR_SPI_data.rx_ptr = 0;
 
@@ -117,16 +112,14 @@ void init_SPI_transac(uint8_t *tx_bytes, uint8_t num_bytes, uint8_t motor){
  *
  */
 
-uint8_t get_SPI_rx_data(uint8_t *rx_data){
-	uint8_t i;
-	for(i = 0; i < MOTOR_SPI_data.num_bytes; i++){	//Copy data
-		rx_data[i] = MOTOR_SPI_data.rx_bytes[i];
-	}
+uint16_t get_motor_SPI_rx_data(void){
+	uint16_t DIA_REG;
+	DIA_REG = MOTOR_SPI_data.rx_bytes[0] | (MOTOR_SPI_data.rx_bytes[1] << 8);
 	MOTOR_SPI_TXINT_DISABLE;
 	MOTOR_SPI_RXINT_DISABLE;
 	MOTOR_SPI_data.data_ready = 0;
 	MOTOR_SPI_data.in_use_flag = 0;						//Release SPI datastructure
-	return MOTOR_SPI_data.num_bytes;
+	return DIA_REG;
 }
 
 
@@ -146,11 +139,11 @@ void end_SPI_transac(void){
 /* SM can poll SPI with this function to see if SPI is in use
  *
  */
-uint8_t is_spi_busy(void){
+uint8_t is_motor_spi_busy(void){
 	return MOTOR_SPI_data.in_use_flag;
 }
 
-uint8_t is_spi_rx_ready(void){
+uint8_t is_motor_spi_rx_ready(void){
 	return MOTOR_SPI_data.data_ready;
 }
 
