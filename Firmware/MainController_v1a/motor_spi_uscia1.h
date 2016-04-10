@@ -38,11 +38,12 @@ struct MOTOR_SPI_data_struct{
 	uint8_t num_bytes;				//Number of bytes to recieve/transmit
 	uint8_t in_use_flag;			//Indicates if data has not been processed by main State machine
 	uint8_t data_ready;				//Indicates that rx_bytes is valid
+	uint8_t motor; 					//Chip Select number
 };
 extern volatile struct MOTOR_SPI_data_struct MOTOR_SPI_data;
 
 void MOTOR_SPI_setup(uint8_t idle, uint8_t edge);
-void init_MOTOR_SPI_transac(uint8_t *tx_bytes, uint8_t num_bytes);
+void init_MOTOR_SPI_transac(uint8_t *tx_bytes, uint8_t num_bytes, uint8_t motor);
 uint8_t get_MOTOR_SPI_rx_data(uint8_t *rx_data);
 void end_MOTOR_SPI_transac(void);
 uint8_t is_MOTOR_spi_busy(void);

@@ -1,7 +1,7 @@
 ******************************************************************************
                   MSP430 Linker PC v4.4.3                      
 ******************************************************************************
->> Linked Sat Apr 09 20:12:14 2016
+>> Linked Sat Apr 09 20:51:09 2016
 
 OUTPUT FILE NAME:   <MainController_v1a.out>
 ENTRY POINT SYMBOL: "_c_int00_noargs_noexit"  address: 0000a088
