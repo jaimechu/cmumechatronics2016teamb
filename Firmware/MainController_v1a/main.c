@@ -20,6 +20,15 @@
 #include "motor.h"
 #include "motor_spi_uscia1.h"
 
+#define PLASTIC 1
+#define GLASS 2
+#define METAL 3
+#define OTHER 4
+#define TRANSPARENT 5
+#define OPAQUE 6
+#define HEAVY 7
+#define LIGHT 8
+
 
 /** Debug task macros and globals **/
 void debug_task(void);
@@ -167,7 +176,6 @@ uint8_t ldc_run = 0;
 uint8_t ldc_stop = 0;
 uint16_t ldc_final_val = 0;
 
-
 uint16_t ldc_get_proximity(uint8_t brd);
 void ldc_setup(uint8_t brd);
 void ldc_write_reg(uint8_t reg_addr, uint8_t data, uint8_t brd);
@@ -183,6 +191,8 @@ inline uint8_t ldc_read_reg_multiple_get_data(uint8_t *buf);
 
 /** Mass task globals **/
 void mass_task(void);
+uint8_t mass_sensor_data_check_inside();
+uint8_t mass_sensor_data_check_outside(uint8_t curr_buf);
 typedef enum {MASS_IDLE,
 	          MASS_WAIT,
 			  MASS_GET,
@@ -199,12 +209,13 @@ uint16_t mass_data_buf[NUM_MASS_SENSORS][MASS_BUF_SIZE];
 uint16_t mass_buf_ptr = 0;
 uint16_t mass_hist_buf[32] = {0};
 uint16_t hist_delta_bin = 0;
-
-
 /** END Mass task globals **/
 
 /** Optical task globals **/
 void opt_task(void);
+uint8_t opt_sensor_data_check_inside();
+uint8_t opt_sensor_data_check_outside (uint8_t curr_buf);
+
 typedef enum {OPT_IDLE,
 	          OPT_WAIT,
 			  OPT_GET,
@@ -256,6 +267,7 @@ void motor_spi_task(void);
 void check_chimney_resp(uint16_t resp);
 void check_compact_resp(uint16_t resp);
 void check_bin_resp(uint16_t resp);
+uint8_t is_inside_interval(uint16_t test_val, uint16_t low_thresh, uint16_t high_thresh); // Helper function
 
 
 
@@ -1134,6 +1146,8 @@ void mass_task(void){
 	uint16_t mass_hist_val2 = 0;
 	uint16_t mass_hist_bin1 = 0;
 	uint16_t mass_hist_bin2 = 0;
+	static uint8_t curr_buf = 0;
+	uint8_t mass_result = 0;
 
 	switch(mass_current_state){
 	case MASS_IDLE:							//STATE 2.1
@@ -1142,7 +1156,9 @@ void mass_task(void){
 		mass_end = 0;
 		wait_cntr = 0;
 		//State transistion
-		if(mass_run == 1){
+		if(mass_run == 1){ //For debug
+			mass_current_state = MASS_WAIT;
+		} else if(curr_buf = mass_sensor_data_check_inside()){ //For debug
 			mass_current_state = MASS_WAIT;
 		} else {
 			mass_current_state = MASS_IDLE;
@@ -1174,7 +1190,9 @@ void mass_task(void){
 		}
 
 		//State transistion
-		if(mass_end == 1){
+		if(mass_end == 1){ //For debug
+			mass_current_state = MASS_COMPUTE;
+		} else if(mass_sensor_data_check_outside(curr_buf)){
 			mass_current_state = MASS_COMPUTE;
 		} else {
 			mass_current_state = MASS_WAIT;
@@ -1211,6 +1229,65 @@ void mass_task(void){
 			hist_delta_bin = mass_hist_bin2 - mass_hist_bin1;
 		}
 
+		//Add to sensor data
+		//Update buffer
+
+		if(hist_delta_bin == 0){
+			//dbg_uart_send_string("Other",5);
+			mass_result = OTHER;
+		} else if(hist_delta_bin >= 16) {
+			mass_result = HEAVY;
+			//dbg_uart_send_string("Glass/Heavy Other",17);
+		} else{
+			mass_result = LIGHT;
+			//dbg_uart_send_string("Plastic/Other",13);
+		}
+
+
+		if(curr_buf == 1){
+			sensor_data1.mass_result = mass_result;
+		} else if(curr_buf == 2){
+			sensor_data2.mass_result = mass_result;
+		} else if (curr_buf == 3){
+			sensor_data3.mass_result = mass_result;
+		} else {
+			issue_warning(WARN_MASS_TASK_STOP_ILLEGAL_BUF2);
+		}
+
+		//TODO: Final computation of final_result
+		if(opt_max_time == 0 && hist_delta_bin == 0){
+			dbg_uart_send_string("Other",5);
+			dbg_uart_send_byte(13);		//CR
+			dbg_uart_send_byte(10);		//Line feed
+		} else if(opt_max_time < 20 && hist_delta_bin >= 16) {
+			dbg_uart_send_string("Glass",5);
+			dbg_uart_send_byte(13);		//CR
+			dbg_uart_send_byte(10);		//Line feed
+		} else if (hist_delta_bin >= 16) {
+			dbg_uart_send_string("Glass",5);
+			dbg_uart_send_byte(13);		//CR
+			dbg_uart_send_byte(10);		//Line feed
+		} else if(opt_max_time < 20) {
+			dbg_uart_send_string("Plastic",7);
+			dbg_uart_send_byte(13);		//CR
+			dbg_uart_send_byte(10);		//Line feed
+		} else{
+			dbg_uart_send_string("Other",5);
+			dbg_uart_send_byte(13);		//CR
+			dbg_uart_send_byte(10);		//Line feed
+		}
+
+
+		if(curr_buf == 1){
+			sensor_data1.obj_en = 0;
+		} else if(curr_buf == 2){
+			sensor_data2.obj_en = 0;
+		} else if (curr_buf == 3){
+			sensor_data3.obj_en = 0;
+		} else {
+			issue_warning(WARN_MASS_TASK_STOP_ILLEGAL_BUF3);
+		}
+
 		//State transistion
 		mass_current_state = MASS_IDLE;
 		break;
@@ -1220,6 +1297,40 @@ void mass_task(void){
 	}
 }
 
+uint8_t mass_sensor_data_check_inside(){
+	uint16_t currChimPos = get_curr_chimney_pos();
+	if(sensor_data1.obj_en && is_inside_interval(currChimPos, sensor_data1.mass_start, sensor_data1.mass_end)){
+		return 1;
+	} else if(sensor_data2.obj_en && is_inside_interval(currChimPos, sensor_data2.mass_start, sensor_data2.mass_end)){
+		return 2;
+	} else if(sensor_data3.obj_en && is_inside_interval(currChimPos, sensor_data3.mass_start, sensor_data3.mass_end)){
+		return 3;
+	}
+	return 0;
+}
+
+uint8_t mass_sensor_data_check_outside(uint8_t curr_buf){
+	uint16_t currChimPos = get_curr_chimney_pos();
+	if(curr_buf == 1) {
+		if (!is_inside_interval(currChimPos, sensor_data1.mass_start, sensor_data1.mass_end)){
+			return 1;
+		}
+		return 0;
+	} else if (curr_buf == 2){
+		if(!is_inside_interval(currChimPos, sensor_data2.mass_start, sensor_data2.mass_end)){
+			return 1;
+		}
+		return 0;
+	} else if (curr_buf == 3) {
+		if(!is_inside_interval(currChimPos, sensor_data3.mass_start, sensor_data3.mass_end)){
+			return 1;
+		}
+		return 0;
+	}
+	issue_warning(WARN_MASS_TASK_STOP_ILLEGAL_BUF);
+	return 0;
+}
+
 /** END Mass Task Function **/
 
 
@@ -1227,7 +1338,8 @@ void mass_task(void){
 void opt_task(void){
 	uint8_t i = 0;
 	static uint16_t wait_cntr = 0;
-
+	static uint8_t curr_buf = 0;
+	uint8_t opt_result = 0;
 
 	switch(opt_current_state){
 	case OPT_IDLE:							//STATE 3.1
@@ -1235,8 +1347,11 @@ void opt_task(void){
 		opt_buf_ptr = 0;
 		opt_end = 0;
 		wait_cntr = 0;
+
 		//State transistion
-		if(opt_run == 1){
+		if(opt_run == 1){	//For debug
+			opt_current_state = OPT_WAIT;
+		} else if(curr_buf = opt_sensor_data_check_inside()){	//For debug
 			opt_current_state = OPT_WAIT;
 		} else {
 			opt_current_state = OPT_IDLE;
@@ -1280,7 +1395,9 @@ void opt_task(void){
 		}
 #endif
 		//State transistion
-		if(opt_end == 1){
+		if(opt_end == 1){ // For debug
+			opt_current_state = OPT_COMPUTE;
+		} else if (opt_sensor_data_check_outside(curr_buf)) {
 			opt_current_state = OPT_COMPUTE;
 		} else {
 			opt_current_state = OPT_WAIT;
@@ -1305,6 +1422,28 @@ void opt_task(void){
 		//Clear buffer for [0]th value
 		opt_data_time_buf[0] = 0;
 		opt_data_low_buf[0] = 0xFFFF;
+
+		//Update buffer
+		if(opt_max_time == 0){
+			//dbg_uart_send_string("Other",5);
+			opt_result = OTHER;
+		} else if(opt_max_time < 20) {
+			//dbg_uart_send_string("Plastic/Glass",13);
+			opt_result = TRANSPARENT;
+		} else{
+			//dbg_uart_send_string("Other",5);
+			opt_result = OPAQUE;
+		}
+
+		if(curr_buf == 1){
+			sensor_data1.opt_result = opt_result;
+		} else if(curr_buf == 2){
+			sensor_data2.opt_result = opt_result;
+		} else if (curr_buf == 3){
+			sensor_data3.opt_result = opt_result;
+		} else {
+			issue_warning(WARN_OPT_TASK_STOP_ILLEGAL_BUF2);
+		}
 #endif
 
 		//State transistion
@@ -1314,6 +1453,40 @@ void opt_task(void){
 		issue_warning(WARN_ILLEGAL_OPT_SM_STATE);
 		break;
 	}
+}
+
+uint8_t opt_sensor_data_check_inside(){
+	uint16_t currChimPos = get_curr_chimney_pos();
+	if(sensor_data1.obj_en && is_inside_interval(currChimPos, sensor_data1.opt_start, sensor_data1.opt_end)){
+		return 1;
+	} else if(sensor_data2.obj_en && is_inside_interval(currChimPos, sensor_data2.opt_start, sensor_data2.opt_end)){
+		return 2;
+	} else if(sensor_data3.obj_en && is_inside_interval(currChimPos, sensor_data3.opt_start, sensor_data3.opt_end)){
+		return 3;
+	}
+	return 0;
+}
+
+uint8_t opt_sensor_data_check_outside(uint8_t curr_buf){
+	uint16_t currChimPos = get_curr_chimney_pos();
+	if(curr_buf == 1) {
+		if (!is_inside_interval(currChimPos, sensor_data1.opt_start, sensor_data1.opt_end)){
+			return 1;
+		}
+		return 0;
+	} else if (curr_buf == 2){
+		if(!is_inside_interval(currChimPos, sensor_data2.opt_start, sensor_data2.opt_end)){
+			return 1;
+		}
+		return 0;
+	} else if (curr_buf == 3) {
+		if(!is_inside_interval(currChimPos, sensor_data3.opt_start, sensor_data3.opt_end)){
+			return 1;
+		}
+		return 0;
+	}
+	issue_warning(WARN_OPT_TASK_STOP_ILLEGAL_BUF);
+	return 0;
 }
 
 /** END Optical Task Function **/
@@ -1523,6 +1696,20 @@ void check_bin_resp(uint16_t resp){
 	if(resp & BITB) issue_warning(WARN_OPEN_BIN_OC_HS2);
 	if(resp & BITE) issue_warning(WARN_OPEN_BIN_SGND_OFF);
 	if(resp & BITF) issue_warning(WARN_OPEN_BIN_SBAT_OFF);
+}
+
+
+uint8_t is_inside_interval(uint16_t test_val, uint16_t low_thresh, uint16_t high_thresh){
+	if(low_thresh < high_thresh) {
+		if(test_val > low_thresh && test_val <= high_thresh){
+			return 1;
+		}
+	} else {
+		if (test_val > low_thresh || test_val <= high_thresh){
+			return 1;
+		}
+	}
+	return 0;
 }
 
 
@@ -1749,6 +1936,8 @@ void compact_task(){
 	return;
 }
 /** END Compacting Task Function **/
+
+
 
 /** Debug Task functions **/
 
