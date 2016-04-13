@@ -242,6 +242,9 @@ uint16_t opt_max_time = 0;
 #define COMPACT_CMD 0x0C04
 #define BIN_CMD 0x0C04
 
+// TODO: Uncomment when UI is ready
+//#define NO_UI
+
 uint8_t chimney_motor_enable = 0;
 uint8_t bin_motor_enable = 0;
 uint8_t compact_motor_enable = 0;
@@ -294,9 +297,48 @@ struct sensor_data_struct{
 };
 
 
-extern volatile struct sensor_data_struct sensor_data1;
-extern volatile struct sensor_data_struct sensor_data2;
-extern volatile struct sensor_data_struct sensor_data3;
+extern volatile struct sensor_data_struct sensor_data1 = {
+		.obj_en = 0,
+		.mass_result = 0,
+		.opt_result = 0, // Set by opt_task() - read by mass-task()
+		.LDC_result = 0, // Set by LDC_result - read by mass_task()
+		.mass_start = 0,  // Set by chimney_task
+		.mass_end = 0,
+		.opt_start = 0,
+		.opt_end = 0,
+		.LDC_start = 0,
+		.LDC_end = 0,
+		.final_result = 0,
+		.compact_ok	= 0
+};
+extern volatile struct sensor_data_struct sensor_data2 = {
+		.obj_en = 0,
+		.mass_result = 0,
+		.opt_result = 0, // Set by opt_task() - read by mass-task()
+		.LDC_result = 0, // Set by LDC_result - read by mass_task()
+		.mass_start = 0,  // Set by chimney_task
+		.mass_end = 0,
+		.opt_start = 0,
+		.opt_end = 0,
+		.LDC_start = 0,
+		.LDC_end = 0,
+		.final_result = 0,
+		.compact_ok = 0
+};
+extern volatile struct sensor_data_struct sensor_data3 = {
+		.obj_en = 0,
+		.mass_result = 0,
+		.opt_result = 0, // Set by opt_task() - read by mass-task()
+		.LDC_result = 0, // Set by LDC_result - read by mass_task()
+		.mass_start = 0,  // Set by chimney_task
+		.mass_end = 0,
+		.opt_start = 0,
+		.opt_end = 0,
+		.LDC_start = 0,
+		.LDC_end = 0,
+		.final_result = 0,
+		.compact_ok = 0
+};
 
 typedef enum  {SYS_OFF,
 			   SYS_ON,
@@ -308,25 +350,24 @@ void sys_task();
 /* END Buffer globals */
 
 /* Chimney Functional task globals */
-#define DEG0_POS_H 0
-#define DEG0_POS_L 0
-#define DEG90_POS_H 0
-#define DEG90_POS_L 0
-#define DEG180_POS_H 0
-#define DEG180_POS_L 0
-#define DEG270_POS_H 0
-#define DEG270_POS_L 0
-#define POS_THRESH 0
-#define CHIM_SPEED 0
+#define DEG0_POS_L 0x4A00
+#define DEG0_POS_H 0x4B00
+#define DEG90_POS_L 0x0A00
+#define DEG90_POS_H 0x0B00
+#define DEG180_POS_L 0xCA00
+#define DEG180_POS_H 0xCB00
+#define DEG270_POS_L 0x8900
+#define DEG270_POS_H 0x8A00
+#define POS_THRESH 0x0100
+#define CHIM_SPEED 0x439
 
-#define MASS_OFFSET_START 0
-#define MASS_OFFSET_END 0
-#define OPT_OFFSET_START 0
-#define OPT_OFFSET_END 0
+#define MASS_OFFSET_START  0x7360// Add this to the door value to get the start of mass
+#define MASS_OFFSET_END 0xB360
+#define OPT_OFFSET_START 0x2F50
+#define OPT_OFFSET_END 0x6F50
 #define LDC_OFFSET_START 0
-#define LDC_OFFSET_END 0
+#define LDC_OFFSET_END 0x4000
 
-uint8_t door_opened = 0;
 uint8_t obj_inserted = 0;
 uint16_t last_insert_pos = 0;
 
@@ -335,6 +376,7 @@ uint16_t get_curr_chimney_pos();
 uint8_t check_chim_paddle_pos();
 uint8_t check_chim_next_pos();
 uint8_t check_chim_full_rot();
+uint8_t is_entry_door_open(void);
 
 typedef enum  {CHIM_IDLE_OFF,
 			   CHIM_CHECK_PADDLE,
@@ -409,6 +451,7 @@ int main(void) {
         //monitor_task();
         i2c_task();
         motor_spi_task();
+        chimney_task();
     }
 
 
@@ -704,8 +747,8 @@ void adc_setup(void){
 	P5DIR |= BIT1+BIT4+BIT5;
 	P8DIR |= BIT0+BIT1+BIT2;
 	//Setup ADC pins to use ADC
-	P6SEL = 0xFF;
-	P5SEL |= BIT0;
+	//P5SEL |= BIT0; //Unused
+	P6SEL |= BIT0+BIT1+BIT2+BIT3+BIT4+BIT5;
 	P7SEL |= BIT1 + BIT2 + BIT3;	//P7.0 removed from sequence (reassigned to LDC_CS2)
 	//Setup ADC12
 	ADC12CTL0 = ADC12SHT1_6 +	//128? maybe(check this) ADCLK cycles for sampling (775Hz sequence rate)
@@ -747,6 +790,7 @@ void adc_task(void){
 		//State action: no action
 		//State transition
 		if(adc12_int_done_flag){
+			adc12_int_done_flag = 0;
 			adc_current_state = INIT_SEQ2;			//T8.3
 		} else {
 			adc_current_state = WAIT_SEQ1;			//T8.2
@@ -755,7 +799,7 @@ void adc_task(void){
 	case INIT_SEQ2:		//S8.4
 		//State action
 		adc_seq2 = 1;
-		adc12_int_done_flag = 0;
+		//adc12_int_done_flag = 0;
 		adc_ext_mux_ptr = 0;
 		set_hall_A_chnl(adc_ext_mux_ptr);	//Reset external muxes
 		set_hall_B_chnl(adc_ext_mux_ptr);
@@ -765,7 +809,7 @@ void adc_task(void){
 		ADC12MCTL7 &= ~ADC12EOS;
 		ADC12IE = ADC12IE1;						//Enable ADC12 interrupt
 		ADC12CTL0 |= ADC12SC+ADC12ENC;				//Start conversion
-		adc12_int_done_flag = 0;
+		//adc12_int_done_flag = 0;
 		//State transition
 		adc_current_state = WAIT_SEQ2;		//T8.5
 		break;
@@ -773,6 +817,7 @@ void adc_task(void){
 		//State action: no action
 		//State transition
 		if(adc12_int_done_flag){
+			adc12_int_done_flag = 0;
 			adc_current_state = UPDATE_OUT_BUF;	//T8.7
 		} else {
 			adc_current_state = WAIT_SEQ2;		//T8.6
@@ -1293,30 +1338,14 @@ void motor_enable_setup(void){
 }
 
 void i2c_task(void){
-	uint16_t i = 0;
 	uint8_t buf[4];
-	/*
-	uint8_t buf[4];
-	if(!is_I2C_busy()){	//Start new transaction
-		for(i=0;i<0xFFFF;i++);
-		buf[0] = 1;
-		buf[1] = (sort_motor_enable<<3)|(bin_motor_enable<<2)|(compact_motor_enable<<1)|chimney_motor_enable;
-		init_I2C_transac(buf,2,I2C_ADDR_MOTOR_IO);
-
-	} else if(is_I2C_rx_ready()){
-		end_I2C_transac();
-	}
-	*/
-
 	switch(i2cCurrState){
 	case I2C_SEND_MOTOR:
 		//State action
-		if(!is_I2C_busy()){	//Start new transaction
-			for(i=0;i<0xFFFF;i++);
-			buf[0] = 1;
-			buf[1] = (sort_motor_enable<<3)|(bin_motor_enable<<2)|(compact_motor_enable<<1)|chimney_motor_enable;
-			init_I2C_transac(buf,2,I2C_ADDR_MOTOR_IO);
-		}
+		buf[0] = 1;
+		buf[1] = (sort_motor_enable<<3)|(bin_motor_enable<<2)|(compact_motor_enable<<1)|chimney_motor_enable;
+		init_I2C_transac(buf,2,I2C_ADDR_MOTOR_IO);
+#ifdef NO_UI
 		//State transistion
 		i2cCurrState = I2C_WAIT1;
 		break;
@@ -1333,39 +1362,20 @@ void i2c_task(void){
 	case I2C_SEND_UI:
 		//State action
 		end_I2C_transac();
-		if(!is_I2C_busy()){	//Start new transaction
-			//TODO: Send string to UI
-		}
+		//TODO: Send string to UI
+#endif
 		//State transistion
 		i2cCurrState = I2C_WAIT2;
 		break;
 	case I2C_WAIT2:
 		//State action
 		//Do nothing
-		//State transistion
-		if(is_I2C_rx_ready()){
-			i2cCurrState = I2C_CHECK_SWITCH;
-		} else {
-			i2cCurrState = I2C_WAIT2;
-		}
-		break;
-	case I2C_CHECK_SWITCH:
-		//State action
-		end_I2C_transac();
-		if(!is_I2C_busy()){	//Start new transaction
-			//TODO: Check switch status
-		}
-		//State transistion
-		i2cCurrState = I2C_WAIT3;
-		break;
-	case I2C_WAIT3:
-		//State action
-		//Do nothing
+
 		//State transistion
 		if(is_I2C_rx_ready()){
 			i2cCurrState = I2C_CLOSE;
 		} else {
-			i2cCurrState = I2C_WAIT3;
+			i2cCurrState = I2C_WAIT2;
 		}
 		break;
 	case I2C_CLOSE:
@@ -1378,6 +1388,7 @@ void i2c_task(void){
 		issue_warning(WARN_ILLEGAL_I2C_SM_STATE);
 		break;
 	}
+
 	return;
 }
 
@@ -1532,7 +1543,7 @@ void chimney_task(){
 	case CHIM_CHECK_PADDLE:
 		//State action
 		set_chimney_speed(0);
-		bin_motor_enable = 0;
+		chimney_motor_enable = 0;
 		//State transistion
 		if(check_chim_paddle_pos()) {
 			chimneyCurrState = CHIM_IDLE_ON;
@@ -1543,7 +1554,7 @@ void chimney_task(){
 	case CHIM_TURN_PADDLE:
 		//State action
 		set_chimney_speed(CHIM_SPEED);
-		bin_motor_enable = 1;
+		chimney_motor_enable = 1;
 		//State transistion
 		if(check_chim_paddle_pos()){
 			chimneyCurrState = CHIM_IDLE_ON;
@@ -1554,9 +1565,9 @@ void chimney_task(){
 	case CHIM_IDLE_ON:
 		//State action
 		set_chimney_speed(0);
-		bin_motor_enable = 0;
+		chimney_motor_enable = 0;
 		//State transistion
-		if(door_opened) {
+		if(is_entry_door_open()) {
 			chimneyCurrState = CHIM_CHECK_POS;
 		} else if (sysState == SYS_OFF || sysState == SYS_MAINT) {
 			chimneyCurrState = CHIM_IDLE_OFF;
@@ -1577,7 +1588,7 @@ void chimney_task(){
 	case CHIM_RUN2DOOR:
 		//State action
 		set_chimney_speed(CHIM_SPEED);
-		bin_motor_enable = 1;
+		chimney_motor_enable = 1;
 		//State transistion
 		if(check_chim_paddle_pos()) {
 			chimneyCurrState = CHIM_STOP;
@@ -1588,9 +1599,9 @@ void chimney_task(){
 	case CHIM_STOP:
 		//State action
 		set_chimney_speed(0);
-		bin_motor_enable = 0;
+		chimney_motor_enable = 0;
 		//State transistion
-		if(!door_opened){
+		if(!is_entry_door_open()){
 			chimneyCurrState = CHIM_INIT_BUF;
 		} else {
 			chimneyCurrState = CHIM_STOP;
@@ -1631,11 +1642,11 @@ void chimney_task(){
 	case CHIM_RUNALL:
 		//State action
 		set_chimney_speed(CHIM_SPEED);
-		bin_motor_enable = 1;
+		chimney_motor_enable = 1;
 		//State transistion
 		if(check_chim_full_rot()){
 			chimneyCurrState = CHIM_IDLE_ON;
-		} else if (door_opened) {
+		} else if (is_entry_door_open()) {
 			chimneyCurrState = CHIM_CHECK_POS;
 		} else {
 			chimneyCurrState = CHIM_RUNALL;
@@ -1651,16 +1662,18 @@ void chimney_task(){
 }
 
 uint16_t get_curr_chimney_pos(){
-	return (adc_output_buffer[3] << 4); // Hall pos 1
+	volatile uint16_t currChimPos = (adc_output_buffer[3] <<4 );
+	return currChimPos; // Hall pos 1
 }
 
 /* Check is chimney motor encoder val is at 90 degrees with the door */
 uint8_t check_chim_paddle_pos(){
-	uint16_t currChimPos = get_curr_chimney_pos();
-	if(currChimPos < DEG0_POS_H && currChimPos >= DEG0_POS_L) return 1;
-	if(currChimPos < DEG90_POS_H && currChimPos >= DEG90_POS_L) return 2;
-	if(currChimPos < DEG180_POS_H && currChimPos >= DEG180_POS_L) return 3;
-	if(currChimPos < DEG270_POS_H && currChimPos >= DEG270_POS_L) return 4;
+	//uint16_t currChimPos2 = get_curr_chimney_pos();
+	volatile uint16_t currChimPos2 = get_curr_chimney_pos();
+	if(currChimPos2 < DEG0_POS_H && currChimPos2 >= DEG0_POS_L) return 1;
+	if(currChimPos2 < DEG90_POS_H && currChimPos2 >= DEG90_POS_L) return 2;
+	if(currChimPos2 < DEG180_POS_H && currChimPos2 >= DEG180_POS_L) return 3;
+	if(currChimPos2 < DEG270_POS_H && currChimPos2 >= DEG270_POS_L) return 4;
 	return 0;
 }
 
@@ -1698,6 +1711,10 @@ uint8_t check_chim_full_rot(){
 		}
 	}
 	return 0;
+}
+
+uint8_t is_entry_door_open(void){
+	return !(P6IN & BIT7);
 }
 
 /** END Chimney Task Function **/
@@ -2136,10 +2153,13 @@ void debug_task(void){
 			speed = ascii2hex_byte(debug_cmd_buf[5], debug_cmd_buf[6]);
 			speed |= (ascii2hex_byte('0',debug_cmd_buf[4])<<8);
 			set_bin_speed(speed);
-		} else if((strncmp(debug_cmd_buf,"door o",6)==0) && (debug_cmd_buf_ptr == 6)){
-			door_opened = 1;
-		} else if((strncmp(debug_cmd_buf,"door c",6)==0) && (debug_cmd_buf_ptr == 6)){
-			door_opened = 0;
+		} else if((strncmp(debug_cmd_buf,"m1 pos",6)==0) && (debug_cmd_buf_ptr == 6)){
+			uint16_t currChimPos = get_curr_chimney_pos();
+			response_buf[0] = '0';
+			response_buf[1] = 'x';
+			hex2ascii_int(currChimPos, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+			response_size = 6;
+			dbg_uart_send_string(response_buf,response_size);
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
