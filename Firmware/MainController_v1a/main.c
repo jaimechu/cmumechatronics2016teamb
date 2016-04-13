@@ -358,7 +358,8 @@ void sys_task();
 #define DEG180_POS_H 0xCB00
 #define DEG270_POS_L 0x8900
 #define DEG270_POS_H 0x8A00
-#define POS_THRESH 0x0100
+#define FULL_ROT_LOW_THRESH 0x0400
+#define FULL_ROT_HIGH_THRESH 0x0600
 #define CHIM_SPEED 0x439
 
 #define MASS_OFFSET_START  0x7360// Add this to the door value to get the start of mass
@@ -388,6 +389,7 @@ typedef enum  {CHIM_IDLE_OFF,
 			   CHIM_RUNALL,
 			   CHIM_INIT_BUF} chimney_state_t;
 volatile chimney_state_t chimneyCurrState = CHIM_IDLE_OFF;
+volatile uint8_t last_paddle = 0;
 /* END Chimney Functional task globals */
 
 /* Compact Functional task globals */
@@ -1529,6 +1531,7 @@ void check_bin_resp(uint16_t resp){
 /** Chimney Task Function **/
 void chimney_task(){
 	uint16_t currChimPos = get_curr_chimney_pos();
+	volatile uint8_t temp;
 	switch(chimneyCurrState){
 	case CHIM_IDLE_OFF:
 		//State action
@@ -1579,7 +1582,8 @@ void chimney_task(){
 		//State action
 		// Do nothing
 		//State transistion
-		if(check_chim_next_pos()){
+		temp = check_chim_next_pos();
+		if(temp){
 			chimneyCurrState = CHIM_STOP;
 		} else {
 			chimneyCurrState = CHIM_RUN2DOOR;
@@ -1590,7 +1594,8 @@ void chimney_task(){
 		set_chimney_speed(CHIM_SPEED);
 		chimney_motor_enable = 1;
 		//State transistion
-		if(check_chim_paddle_pos()) {
+		temp = check_chim_next_pos();
+		if(temp) {
 			chimneyCurrState = CHIM_STOP;
 		} else {
 			chimneyCurrState = CHIM_RUN2DOOR;
@@ -1600,6 +1605,7 @@ void chimney_task(){
 		//State action
 		set_chimney_speed(0);
 		chimney_motor_enable = 0;
+		last_insert_pos = get_curr_chimney_pos();
 		//State transistion
 		if(!is_entry_door_open()){
 			chimneyCurrState = CHIM_INIT_BUF;
@@ -1646,6 +1652,7 @@ void chimney_task(){
 		//State transistion
 		if(check_chim_full_rot()){
 			chimneyCurrState = CHIM_IDLE_ON;
+			last_paddle = 0;
 		} else if (is_entry_door_open()) {
 			chimneyCurrState = CHIM_CHECK_POS;
 		} else {
@@ -1670,16 +1677,17 @@ uint16_t get_curr_chimney_pos(){
 uint8_t check_chim_paddle_pos(){
 	//uint16_t currChimPos2 = get_curr_chimney_pos();
 	volatile uint16_t currChimPos2 = get_curr_chimney_pos();
-	if(currChimPos2 < DEG0_POS_H && currChimPos2 >= DEG0_POS_L) return 1;
-	if(currChimPos2 < DEG90_POS_H && currChimPos2 >= DEG90_POS_L) return 2;
-	if(currChimPos2 < DEG180_POS_H && currChimPos2 >= DEG180_POS_L) return 3;
-	if(currChimPos2 < DEG270_POS_H && currChimPos2 >= DEG270_POS_L) return 4;
-	return 0;
+	volatile uint8_t ret_val = 0;
+	if(currChimPos2 < DEG0_POS_H && currChimPos2 >= DEG0_POS_L) ret_val = 1;
+	if(currChimPos2 < DEG90_POS_H && currChimPos2 >= DEG90_POS_L) ret_val = 2;
+	if(currChimPos2 < DEG180_POS_H && currChimPos2 >= DEG180_POS_L) ret_val = 3;
+	if(currChimPos2 < DEG270_POS_H && currChimPos2 >= DEG270_POS_L) ret_val = 4;
+	return ret_val;
 }
 
 uint8_t check_chim_next_pos(){
-	static uint8_t last_paddle = 0;
-	uint16_t currChimPos = get_curr_chimney_pos();
+
+	volatile uint16_t currChimPos = get_curr_chimney_pos();
 	if(currChimPos < DEG0_POS_H && currChimPos >= DEG0_POS_L && last_paddle != 1) {
 		last_paddle = 1;
 		return 1;
@@ -1700,7 +1708,17 @@ uint8_t check_chim_next_pos(){
 }
 
 uint8_t check_chim_full_rot(){
-	uint16_t currChimPos = get_curr_chimney_pos();
+	volatile uint16_t currChimPos = get_curr_chimney_pos();
+	if(last_insert_pos - FULL_ROT_LOW_THRESH > last_insert_pos - FULL_ROT_HIGH_THRESH) {
+			if(currChimPos < last_insert_pos - FULL_ROT_LOW_THRESH &&  currChimPos >= last_insert_pos - FULL_ROT_HIGH_THRESH) {
+				return 1;
+			}
+		} else {
+			if(currChimPos < last_insert_pos - FULL_ROT_LOW_THRESH ||  currChimPos >= last_insert_pos - FULL_ROT_HIGH_THRESH) {
+				return 1;
+			}
+		}
+	/*
 	if(last_insert_pos + POS_THRESH > last_insert_pos - POS_THRESH) {
 		if(currChimPos < last_insert_pos + POS_THRESH &&  currChimPos >= last_insert_pos - POS_THRESH) {
 			return 1;
@@ -1709,7 +1727,7 @@ uint8_t check_chim_full_rot(){
 		if(currChimPos < last_insert_pos + POS_THRESH ||  currChimPos >= last_insert_pos - POS_THRESH) {
 			return 1;
 		}
-	}
+	}*/
 	return 0;
 }
 
