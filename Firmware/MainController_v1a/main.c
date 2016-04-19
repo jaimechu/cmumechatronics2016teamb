@@ -254,7 +254,7 @@ uint16_t opt_max_time = 0;
 #define BIN_CMD 0x0C04
 
 // TODO: Uncomment when UI is ready
-//#define NO_UI
+#define NO_UI
 
 uint8_t chimney_motor_enable = 0;
 uint8_t bin_motor_enable = 0;
@@ -308,7 +308,6 @@ struct sensor_data_struct{
 	uint8_t compact_ok;
 };
 
-
 extern volatile struct sensor_data_struct sensor_data1 = {
 		.obj_en = 0,
 		.mass_result = 0,
@@ -359,6 +358,32 @@ volatile sys_state_t sysState = SYS_OFF;
 
 void sys_task();
 
+struct total_count_struct{
+	uint8_t plastic;
+	uint8_t glass;
+	uint8_t metal;
+	uint8_t other;
+	uint8_t plastic_full;
+	uint8_t glass_full;
+	uint8_t metal_full;
+	uint8_t other_full;
+};
+volatile struct total_count_struct total_count = {
+		.plastic = 0,
+		.glass = 0,
+		.metal = 0,
+		.other = 0,
+		.plastic_full =0,
+		.glass_full =0,
+		.metal_full = 0,
+		.other_full = 0
+};
+const uint8_t ui_buf[80] = "PL:000  GL:000  xxxxxxxXxxxxxxxXxxxxxxxXMT:000  OT:000  xxxxxxxXxxxxxxxXxxxxxxxX";
+#define UI_PLASTIC_INDEX 3
+#define UI_GLASS_INDEX 11
+#define UI_METAL_INDEX 43
+#define UI_OTHER_INDEX 51
+#define I2C_ADDR_UI_IO 0x50
 /* END Buffer globals */
 
 /* Chimney Functional task globals */
@@ -384,11 +409,11 @@ void sys_task();
 uint8_t obj_inserted = 0;
 uint16_t last_insert_pos = 0;
 
-void chimney_task();
-uint16_t get_curr_chimney_pos();
-uint8_t check_chim_paddle_pos();
-uint8_t check_chim_next_pos();
-uint8_t check_chim_full_rot();
+void chimney_task(void);
+uint16_t get_curr_chimney_pos(void);
+uint8_t check_chim_paddle_pos(void);
+uint8_t check_chim_next_pos(void);
+uint8_t check_chim_full_rot(void);
 uint8_t is_entry_door_open(void);
 
 typedef enum  {CHIM_IDLE_OFF,
@@ -405,13 +430,115 @@ volatile uint8_t last_paddle = 0;
 /* END Chimney Functional task globals */
 
 /* Compact Functional task globals */
+#define COMPACT_SPEED 0x000
 void compact_task();
+
+
 /* END Compact Functional task globals */
 
 /* Bin Functional task globals */
+
+//Bin position thresholds
+#define GLASS_DUMP_L 0x4A00
+#define GLASS_DUMP_H 0x4B00
+#define PLASTIC_DUMP_L 0x0A00
+#define PLASTIC_DUMP_H 0x0B00
+#define METAL_DUMP_L 0xCA00
+#define METAL_DUMP_H 0xCB00
+#define OTHER_DUMP_L 0x8900
+#define OTHER_DUMP_H 0x8A00
+
+#define GLASS_DOOR_L 0x4A00
+#define GLASS_DOOR_H 0x4B00
+#define PLASTIC_DOOR_L 0x0A00
+#define PLASTIC_DOOR_H 0x0B00
+#define METAL_DOOR_L 0xCA00
+#define METAL_DOOR_H 0xCB00
+#define OTHER_DOOR_L 0x8900
+#define OTHER_DOOR_H 0x8A00
+
+#define GLASS_THRESH 0x4A00
+#define PLASTIC_THRESH 0x4B00
+#define METAL_THRESH 0xCB00
+#define OTHER_THRESH 0x8900
+
+#define GLASS_HALF_THRESH_L 0x0000
+#define GLASS_HALF_THRESH_H 0xFFF0
+#define PLASTIC_HALF_THRESH_L 0x0000
+#define PLASTIC_HALF_THRESH_H 0xFFF0
+#define METAL_HALF_THRESH_L 0x0000
+#define METAL_HALF_THRESH_H 0xFFF0
+#define OTHER_HALF_THRESH_L 0x0000
+#define OTHER_HALF_THRESH_H 0xFFF0
+
+#define BIN_SPEED 0x439
+
+typedef enum  {BIN_PLASTIC,
+			   BIN_GLASS,
+			   BIN_METAL,
+			   BIN_OTHER } bin_t;
+bin_t binCurr = BIN_PLASTIC;
+
+typedef enum  {BIN_IDLE_OFF,
+			   BIN_FIND_NEAREST,
+			   BIN_CHECK_POS_MAINT,
+			   BIN_RUN_TO_DOOR,
+			   BIN_WAIT_OPEN,
+			   BIN_WAIT_USER,
+			   BIN_INC_INT,
+			   BIN_IDLE_ON,
+			   BIN_CHECK_POS,
+			   BIN_RUN_TO_DUMP,
+			   BIN_AT_POS} bin_state_t;
+volatile bin_state_t binCurrState = BIN_IDLE_OFF;
+
 uint8_t bin_request = 0; //TODO: Issue request in mass_task
-void bin_task();
+uint16_t distance = 0; // US distance
+bin_t bin_int_request = BIN_GLASS;
+uint8_t bin_ready = 0;
+
+
+
+void bin_task(void);
+void bin_full_task(void);
+uint16_t get_curr_bin_pos(void);
+uint8_t check_bin_pos(bin_t bin_requested);
+bin_t check_bin_nearest_pos(void);
+uint8_t check_bin_request_pos(bin_t bin_requested);
+uint8_t is_bin_door_open(void);
 /* END Bin Functional task globals */
+
+/* Stepper Functional task globals */
+#define STEP_DIR_OPEN 1
+#define STEP_DIR_CLOSE 0
+
+#define STEP_CLOSE_POS 0x0000
+#define STEP_TIME 4096
+
+uint8_t step_switch = 0;
+uint16_t step_position = 0;
+
+typedef enum  {STEP_IDLE_OFF,
+			   STEP_FIND_HOME,
+			   STEP_WAIT_HOME,
+			   STEP_STOP,
+			   STEP_WAIT_REQUEST,
+			   STEP_MOVE,
+			   STEP_PAUSE,
+	           STEP_RUN} step_state_t;
+volatile step_state_t stepCurrState = STEP_IDLE_OFF;
+
+void stepper_setup(void);
+void step_task(void);
+uint8_t is_step_switch_pressed(void);
+void stepper_enable(uint8_t direction);
+void stepper_disable(void);
+
+
+/* END Stepper Functional task globals*/
+
+/* Compact Functional task globals */
+/* END Compact Functional task globals*/
 
 /** Main Loop **/
 
@@ -466,6 +593,8 @@ int main(void) {
         i2c_task();
         motor_spi_task();
         chimney_task();
+        //bin_task();
+        bin_full_task();
     }
 
 
@@ -870,8 +999,6 @@ inline void set_hall_B_chnl(uint8_t mux_chnl){
 	P8OUT = mux_chnl&0x7;
 	return;
 }
-
-
 /** END ADC Task Functions **/
 
 /** LDC Task Functions **/
@@ -1114,7 +1241,7 @@ void ldc_setup(uint8_t brd){
 	//Watchdog frequency
 	ldc_write_reg(0x03,25, brd);//179
 	//Configuration
-	ldc_write_reg(0x04,BIT4|BIT2|BIT1|BIT0, brd);	//Amplitude=4V, Response time = 6144, 4kHz sampling rate
+	ldc_write_reg(0x04,BIT4|BIT2|BIT1|BIT0, brd);	//Amplitude=4V, Response time = 6144, 4kHz sampling rate - 0x17
 	//Clock configuration
 	ldc_write_reg(0x05,BIT1, brd);	//Enable crystal
 	//INTB configuration
@@ -1259,23 +1386,34 @@ void mass_task(void){
 			dbg_uart_send_string("Other",5);
 			dbg_uart_send_byte(13);		//CR
 			dbg_uart_send_byte(10);		//Line feed
+			total_count.other++;
+			bin_int_request = BIN_OTHER;
 		} else if(opt_max_time < 20 && hist_delta_bin >= 16) {
 			dbg_uart_send_string("Glass",5);
 			dbg_uart_send_byte(13);		//CR
 			dbg_uart_send_byte(10);		//Line feed
+			total_count.glass++;
+			bin_int_request = BIN_GLASS;
 		} else if (hist_delta_bin >= 16) {
 			dbg_uart_send_string("Glass",5);
 			dbg_uart_send_byte(13);		//CR
 			dbg_uart_send_byte(10);		//Line feed
+			total_count.glass++;
+			bin_int_request = BIN_GLASS;
 		} else if(opt_max_time < 20) {
 			dbg_uart_send_string("Plastic",7);
 			dbg_uart_send_byte(13);		//CR
 			dbg_uart_send_byte(10);		//Line feed
+			total_count.plastic++;
+			bin_int_request = BIN_PLASTIC;
 		} else{
 			dbg_uart_send_string("Other",5);
 			dbg_uart_send_byte(13);		//CR
 			dbg_uart_send_byte(10);		//Line feed
+			total_count.other++;
+			bin_int_request = BIN_OTHER;
 		}
+		bin_request = 1;
 
 
 		if(curr_buf == 1){
@@ -1513,7 +1651,8 @@ void motor_enable_setup(void){
 }
 
 void i2c_task(void){
-	uint8_t buf[4];
+	uint8_t buf[80];
+	uint8_t i;
 	switch(i2cCurrState){
 	case I2C_SEND_MOTOR:
 		//State action
@@ -1537,7 +1676,43 @@ void i2c_task(void){
 	case I2C_SEND_UI:
 		//State action
 		end_I2C_transac();
-		//TODO: Send string to UI
+		//Send string to UI
+		for(i=0; i<80;i++){
+			buf[i] = ui_buf[i];
+		}
+		if(total_count.plastic_full) {
+			dec2ascii_byte(total_count.plastic, &buf[UI_PLASTIC_INDEX], &buf[UI_PLASTIC_INDEX+1], &buf[UI_PLASTIC_INDEX+2]);
+		} else {
+			buf[UI_PLASTIC_INDEX] = 'F';
+			buf[UI_PLASTIC_INDEX+1] = 'U';
+			buf[UI_PLASTIC_INDEX+2] = 'L';
+			buf[UI_PLASTIC_INDEX+3] = 'L';
+		}
+		if(total_count.glass_full) {
+			dec2ascii_byte(total_count.glass, &buf[UI_GLASS_INDEX], &buf[UI_GLASS_INDEX+1], &buf[UI_GLASS_INDEX+2]);
+		} else {
+			buf[UI_GLASS_INDEX] = 'F';
+			buf[UI_GLASS_INDEX+1] = 'U';
+			buf[UI_GLASS_INDEX+2] = 'L';
+			buf[UI_GLASS_INDEX+3] = 'L';
+		}
+		if(total_count.metal_full) {
+			dec2ascii_byte(total_count.metal, &buf[UI_METAL_INDEX], &buf[UI_METAL_INDEX+1], &buf[UI_METAL_INDEX+2]);
+		} else {
+			buf[UI_METAL_INDEX] = 'F';
+			buf[UI_METAL_INDEX+1] = 'U';
+			buf[UI_METAL_INDEX+2] = 'L';
+			buf[UI_METAL_INDEX+3] = 'L';
+		}
+		if(total_count.other_full) {
+			dec2ascii_byte(total_count.other, &buf[UI_OTHER_INDEX], &buf[UI_OTHER_INDEX+1], &buf[UI_OTHER_INDEX+2]);
+		} else {
+			buf[UI_OTHER_INDEX] = 'F';
+			buf[UI_OTHER_INDEX+1] = 'U';
+			buf[UI_OTHER_INDEX+2] = 'L';
+			buf[UI_OTHER_INDEX+3] = 'L';
+		}
+		init_I2C_transac(buf,2,I2C_ADDR_UI_IO);
 #endif
 		//State transistion
 		i2cCurrState = I2C_WAIT2;
@@ -1716,7 +1891,7 @@ uint8_t is_inside_interval(uint16_t test_val, uint16_t low_thresh, uint16_t high
 /** END Motor Enable Task Function **/
 
 /** Chimney Task Function **/
-void chimney_task(){
+void chimney_task(void){
 	uint16_t currChimPos = get_curr_chimney_pos();
 	volatile uint8_t temp;
 	switch(chimneyCurrState){
@@ -1851,17 +2026,16 @@ void chimney_task(){
 		chimneyCurrState = CHIM_IDLE_OFF;
 		break;
 	}
-
 	return;
 }
 
-uint16_t get_curr_chimney_pos(){
+uint16_t get_curr_chimney_pos(void){
 	volatile uint16_t currChimPos = (adc_output_buffer[3] <<4 );
 	return currChimPos; // Hall pos 1
 }
 
 /* Check is chimney motor encoder val is at 90 degrees with the door */
-uint8_t check_chim_paddle_pos(){
+uint8_t check_chim_paddle_pos(void){
 	//uint16_t currChimPos2 = get_curr_chimney_pos();
 	volatile uint16_t currChimPos2 = get_curr_chimney_pos();
 	volatile uint8_t ret_val = 0;
@@ -1872,7 +2046,7 @@ uint8_t check_chim_paddle_pos(){
 	return ret_val;
 }
 
-uint8_t check_chim_next_pos(){
+uint8_t check_chim_next_pos(void){
 
 	volatile uint16_t currChimPos = get_curr_chimney_pos();
 	if(currChimPos < DEG0_POS_H && currChimPos >= DEG0_POS_L && last_paddle != 1) {
@@ -1894,7 +2068,7 @@ uint8_t check_chim_next_pos(){
 	return 0;
 }
 
-uint8_t check_chim_full_rot(){
+uint8_t check_chim_full_rot(void){
 	volatile uint16_t currChimPos = get_curr_chimney_pos();
 	if(last_insert_pos - FULL_ROT_LOW_THRESH > last_insert_pos - FULL_ROT_HIGH_THRESH) {
 			if(currChimPos < last_insert_pos - FULL_ROT_LOW_THRESH &&  currChimPos >= last_insert_pos - FULL_ROT_HIGH_THRESH) {
@@ -1905,16 +2079,6 @@ uint8_t check_chim_full_rot(){
 				return 1;
 			}
 		}
-	/*
-	if(last_insert_pos + POS_THRESH > last_insert_pos - POS_THRESH) {
-		if(currChimPos < last_insert_pos + POS_THRESH &&  currChimPos >= last_insert_pos - POS_THRESH) {
-			return 1;
-		}
-	} else {
-		if(currChimPos < last_insert_pos + POS_THRESH ||  currChimPos >= last_insert_pos - POS_THRESH) {
-			return 1;
-		}
-	}*/
 	return 0;
 }
 
@@ -1925,18 +2089,456 @@ uint8_t is_entry_door_open(void){
 /** END Chimney Task Function **/
 
 /** Bins Function **/
+
+uint8_t is_bin_door_open(void){
+	return !(P6IN & BIT6);
+}
+
+uint16_t get_curr_bin_pos(void){
+	volatile uint16_t currBinPos = (adc_output_buffer[5] <<4 );
+	return currBinPos; // Hall pos 3
+}
+
+//Check if bin is at requested location
+uint8_t check_bin_request_pos(bin_t bin_requested){
+	volatile uint16_t currBinPos = get_curr_bin_pos();
+	uint8_t ret_val = 0;
+	switch(bin_requested){
+	case BIN_GLASS:
+		if(currBinPos < GLASS_DUMP_H && currBinPos >= GLASS_DUMP_L){
+			ret_val = 1;
+		}
+		break;
+	case BIN_PLASTIC:
+		if(currBinPos < PLASTIC_DUMP_H && currBinPos >= PLASTIC_DUMP_L){
+			ret_val = 1;
+		}
+		break;
+	case BIN_METAL:
+		if(currBinPos < METAL_DUMP_H && currBinPos >= METAL_DUMP_L){
+			ret_val = 1;
+		}
+		break;
+	case BIN_OTHER:
+		if(currBinPos < OTHER_DUMP_H && currBinPos >= OTHER_DUMP_L){
+			ret_val = 1;
+		}
+		break;
+	default:
+		issue_warning(WARN_ILLEGAL_BIN_REQUEST_SM_STATE);
+	}
+	return ret_val;
+}
+
+/*Check bin for maintenance mode */
+bin_t check_bin_nearest_pos(void) {
+	//TODO: Fix wraparound issues with encoders
+	volatile uint16_t currBinPos = get_curr_bin_pos();
+	if(currBinPos <= GLASS_THRESH  && currBinPos > PLASTIC_THRESH){
+		return BIN_GLASS;
+	}
+	else if(currBinPos <= PLASTIC_THRESH  && currBinPos > METAL_THRESH){
+		return BIN_PLASTIC;
+	}
+	else if(currBinPos <= METAL_THRESH && currBinPos > OTHER_THRESH ){
+		return BIN_GLASS;
+	}
+	else {
+		return BIN_OTHER;
+	}
+}
+
+/* Check is bin motor encoder val is at 90 degrees with the door - Maint mode*/
+uint8_t check_bin_pos(bin_t bin_requested){
+	volatile uint16_t currBinPos = get_curr_bin_pos();
+	uint8_t ret_val = 0;
+	switch(bin_requested){
+	case BIN_GLASS:
+		if(currBinPos < GLASS_DOOR_H && currBinPos >= GLASS_DOOR_L){
+			ret_val = 1;
+		}
+		break;
+	case BIN_PLASTIC:
+		if(currBinPos < PLASTIC_DOOR_H && currBinPos >= PLASTIC_DOOR_L){
+			ret_val = 1;
+		}
+		break;
+	case BIN_METAL:
+		if(currBinPos < METAL_DOOR_H && currBinPos >= METAL_DOOR_L){
+			ret_val = 1;
+		}
+		break;
+	case BIN_OTHER:
+		if(currBinPos < OTHER_DOOR_H && currBinPos >= OTHER_DOOR_L){
+			ret_val = 1;
+		}
+		break;
+	default:
+		issue_warning(WARN_ILLEGAL_BIN_REQUEST_SM_STATE);
+	}
+	return ret_val;
+}
+
+uint8_t get_bin_motor_dir(bin_t bin_requested){
+	volatile uint16_t currBinPos = get_curr_bin_pos();
+	uint8_t ret_val = 0;
+	switch(bin_requested){
+	case BIN_GLASS:
+		if(currBinPos < GLASS_HALF_THRESH_H && currBinPos >= GLASS_HALF_THRESH_L){
+			ret_val = 1;
+		} else {
+			ret_val = 0;
+		}
+		break;
+	case BIN_PLASTIC:
+		if(currBinPos < PLASTIC_HALF_THRESH_H && currBinPos >= PLASTIC_HALF_THRESH_L){
+			ret_val = 1;
+		} else {
+			ret_val = 0;
+		}
+		break;
+	case BIN_METAL:
+		if(currBinPos < METAL_HALF_THRESH_H && currBinPos >= METAL_HALF_THRESH_L){
+			ret_val = 1;
+		} else {
+			ret_val = 0;
+		}
+		break;
+	case BIN_OTHER:
+		if(currBinPos < OTHER_HALF_THRESH_H && currBinPos >= OTHER_HALF_THRESH_L){
+			ret_val = 1;
+		} else {
+			ret_val = 0;
+		}
+		break;
+	default:
+		issue_warning(WARN_ILLEGAL_BIN_REQUEST_SM_STATE2);
+	}
+	return ret_val;
+}
+
 void bin_task(){
+	static bin_t bin_int = BIN_GLASS;
+	volatile uint16_t currBinPos = 0;
+	switch(binCurrState){
+	case BIN_IDLE_OFF:
+		//State actions
+		//Do nothing
+		//State transistions
+		if(sysState == SYS_ON){
+				binCurrState = BIN_IDLE_ON;
+		} else if (sysState == SYS_MAINT){
+			binCurrState = BIN_FIND_NEAREST;
+		} else {
+			binCurrState = BIN_IDLE_OFF;
+		}
+		break;
+	case BIN_FIND_NEAREST:
+		//State actions
+		bin_int = check_bin_nearest_pos();
+		set_bin_direction(0);
+		//State transitions
+		binCurrState = BIN_CHECK_POS_MAINT;
+		break;
+	case BIN_CHECK_POS_MAINT:
+		//State actions
+		set_bin_speed(0);
+		bin_motor_enable = 0;
+		//State transistions
+		if(check_bin_pos(bin_int)){
+			binCurrState = BIN_WAIT_OPEN;
+		} else {
+			binCurrState = BIN_RUN_TO_DOOR;
+		}
+		break;
+	case BIN_RUN_TO_DOOR:
+		//State actions
+		set_bin_speed(BIN_SPEED);
+		bin_motor_enable = 1;
+
+		//State transistions
+		if(check_bin_pos(bin_int)){
+			binCurrState = BIN_WAIT_OPEN;
+		} else {
+			binCurrState = BIN_RUN_TO_DOOR;
+		}
+		break;
+	case BIN_WAIT_OPEN:
+		//State actions
+		set_bin_speed(0);
+		bin_motor_enable = 0;
+		//State transitions
+		if(sysState == SYS_OFF) {
+			binCurrState = BIN_IDLE_OFF;
+		} else if(is_bin_door_open()){
+			binCurrState = BIN_WAIT_USER;
+		} else {
+			binCurrState = BIN_WAIT_OPEN;
+		}
+		break;
+	case BIN_WAIT_USER:
+		//State actions
+		set_bin_speed(0);
+		bin_motor_enable = 0;
+		//State transistions
+		if(!is_bin_door_open()){
+			binCurrState = BIN_INC_INT;
+		} else {
+			binCurrState = BIN_WAIT_USER;
+		}
+		break;
+	case BIN_INC_INT:
+		//State actions
+		switch(bin_int){
+		case BIN_GLASS:
+			bin_int = BIN_PLASTIC;
+			break;
+		case BIN_PLASTIC:
+			bin_int = BIN_METAL;
+			break;
+		case BIN_METAL:
+			bin_int = BIN_OTHER;
+			break;
+		case BIN_OTHER:
+			bin_int = BIN_GLASS;
+			break;
+		default:
+			issue_warning(WARN_ILLEGAL_BIN_REQUEST_SM_STATE2);
+		}
+		//State transistions
+		if(sysState == SYS_OFF){
+			binCurrState = BIN_IDLE_OFF;
+		} else {
+			binCurrState = BIN_CHECK_POS_MAINT;
+		}
+		break;
+	case BIN_IDLE_ON:
+		//State actions
+		set_bin_speed(0);
+		bin_motor_enable = 0;
+		//State transistions
+		if(bin_request){
+			binCurrState = BIN_CHECK_POS;
+		} else {
+			binCurrState = BIN_IDLE_ON;
+		}
+		break;
+	case BIN_CHECK_POS:
+		//State actions
+		set_bin_speed(0);
+		bin_motor_enable = 0;
+		bin_request = 0;
+		//State transistions
+		if(check_bin_request_pos(bin_int_request)){
+			binCurrState = BIN_AT_POS;
+		} else {
+			binCurrState = BIN_RUN_TO_DUMP;
+		}
+		break;
+	case BIN_RUN_TO_DUMP:
+		//State actions
+		set_bin_speed(BIN_SPEED);
+		set_bin_direction(get_bin_motor_dir(bin_int_request));
+		bin_motor_enable = 1;
+		//State transistions
+		if(check_bin_request_pos(bin_int_request)){
+			binCurrState = BIN_AT_POS;
+		} else {
+			binCurrState = BIN_RUN_TO_DUMP;
+		}
+		break;
+	case BIN_AT_POS:
+		//State actions
+		set_bin_speed(0);
+		bin_motor_enable = 0;
+		bin_ready = 1;
+		//State transistions
+		binCurrState = BIN_IDLE_ON;
+		break;
+	default:
+		issue_warning(WARN_ILLEGAL_BIN_SM_STATE);
+		binCurrState = BIN_IDLE_OFF;
+		break;
+	}
 	return;
 }
 
+/*
+ * TA0.4/P1.5 US_ECHO
+ * P2.0 US_TRIG
+ */
+void bin_full_setup(void){
+	P2DIR |= BIT0; // Init trigger
+	P2OUT &= ~BIT0;
+	P1SEL |= BIT5; // Timer
+	TA0CTL =  TASSEL_2 | // SMCLK
+			   ID_0 | //div/1
+			   TACLR |
+			   MC_2; // Mode continuously counts up
+	TA0CCTL4 = CM1| // Capture on rising edge
+			   CAP| // Capture mode
+			   CCIE; // Interrupt
+	return;
+}
+
+void bin_full_task(void){
+	//TODO: Get the ultrasonic sensing
+	// Start and stop
+	return;
+}
 /** END Bins Task Function **/
 
 /** Compacting Task Function **/
+
 void compact_task(){
 	return;
 }
 /** END Compacting Task Function **/
 
+/** Stepper Task Function **/
+
+/* Setup stepper motor driver */
+void stepper_setup(void){
+	//Assign stepper pins
+	P3DIR |= BIT7;		//Step output
+	P4DIR |= BIT3;		//Direction output
+	//Setup TA1.0 to run, pulse pin in interrupt
+	//Up mode, Set/Reset 50% duty
+	TA1CCR0 = STEP_TIME;
+	TA1CTL = TASSEL_2 + MC_0 + TACLR + ID_3+TAIFG;	//SMCLK, off, clear TAR, div8
+	TA1EX0 = TAIDEX_7;
+	return;
+}
+
+inline void start_pwm(void){
+	TA1CTL |= MC_1+TACLR;	//Up mode
+	return;
+}
+
+inline void stop_pwm(void){
+	TA0CTL &= ~MC_3; //Off
+	P3OUT &= ~BIT7;
+}
+
+uint8_t is_step_switch_pressed(void){
+	return (P2IN & BIT7);
+}
+
+/*
+ * STEPPER_STEP - USEL1
+ * DIR - USEL2
+ * EN - SERVO_OUTPUT ENABLE
+ */
+void stepper_enable(uint8_t direction){
+	if(direction){
+		P4OUT |= BIT3;
+	} else {
+		P4OUT &= ~BIT3;
+	}
+	//Enable
+	sort_motor_enable = 1;
+
+	return;
+}
+void stepper_disable(void){
+	sort_motor_enable = 0;
+	return;
+}
+
+void step_task(void){
+	switch(stepCurrState){
+	case STEP_IDLE_OFF:
+		//State action
+		stop_pwm();
+		stepper_disable();
+		//State transition
+		if(sysState == SYS_ON){
+			stepCurrState = STEP_FIND_HOME;
+		} else {
+			stepCurrState = STEP_IDLE_OFF;
+		}
+		break;
+	case STEP_FIND_HOME:
+		//State action
+		stepper_enable(STEP_DIR_OPEN);
+		start_pwm();
+		//State transition
+		if(!(sysState == SYS_ON)) {
+			stepCurrState = STEP_IDLE_OFF;
+		} else {
+			stepCurrState = STEP_WAIT_HOME;
+		}
+		break;
+	case STEP_WAIT_HOME:
+		//State action
+		step_position = 0;
+		//State transition
+		if(!(sysState == SYS_ON)) {
+			stepCurrState = STEP_IDLE_OFF;
+		} else if(is_step_switch_pressed()) {
+			stepCurrState = STEP_STOP;
+		} else {
+			stepCurrState = STEP_WAIT_HOME;
+		}
+		break;
+	case STEP_STOP:
+		//State action
+		stop_pwm();
+		stepper_disable();
+		//State transition
+		if(!(sysState == SYS_ON)) {
+			stepCurrState = STEP_IDLE_OFF;
+		} else {
+			stepCurrState = STEP_WAIT_REQUEST;
+		}
+		break;
+	case STEP_WAIT_REQUEST:
+		//State action
+		//No action
+		//State transition
+		if(!(sysState == SYS_ON)) {
+			stepCurrState = STEP_IDLE_OFF;
+		} else if (bin_ready){
+			stepCurrState = STEP_MOVE;
+		} else {
+			stepCurrState = STEP_WAIT_REQUEST;
+		}
+		break;
+	case STEP_MOVE:
+		//State action
+		//State transition
+		if(!(sysState == SYS_ON)) {
+			stepCurrState = STEP_IDLE_OFF;
+		} else {
+			stepCurrState = STEP_RUN;
+		}
+		break;
+	case STEP_RUN:
+		//State action
+		//No action
+		//State transition
+		if(!(sysState == SYS_ON)) {
+			stepCurrState = STEP_IDLE_OFF;
+		} else if (step_position >= STEP_CLOSE_POS){
+			stepCurrState = STEP_PAUSE;
+		}
+		break;
+	case STEP_PAUSE:
+		stop_pwm();
+		stepper_disable();
+		if(!(sysState == SYS_ON)) {
+			stepCurrState = STEP_IDLE_OFF;
+		} else {
+			stepCurrState = STEP_FIND_HOME;
+		}
+		break;
+	default:
+		issue_warning(WARN_ILLEGAL_STEP_SM_STATE);
+		stepCurrState = STEP_IDLE_OFF;
+	}
+	return;
+}
+/** END Stepper Task Function **/
 
 
 /** Debug Task functions **/
@@ -2367,6 +2969,13 @@ void debug_task(void){
 			hex2ascii_int(currChimPos, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
 			response_size = 6;
 			dbg_uart_send_string(response_buf,response_size);
+		} else if((strncmp(debug_cmd_buf,"m2 pos",6)==0) && (debug_cmd_buf_ptr == 6)){
+			uint16_t currBinPos = get_curr_bin_pos();
+			response_buf[0] = '0';
+			response_buf[1] = 'x';
+			hex2ascii_int(currBinPos, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+			response_size = 6;
+			dbg_uart_send_string(response_buf,response_size);
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
@@ -2383,6 +2992,29 @@ void debug_task(void){
 /** END Debug Task functions **/
 
 /** Interrupts **/
+/* Timer A0 Interrupt Handler
+ * Ultrasonic bin fullness sensing
+ */
+#pragma vector=TIMER0_A0_VECTOR
+__interrupt void TimerA0(void){
+	static uint16_t up_counter;
+	if(TA0CCTL0 & CCI){
+		up_counter = TA0CCR0;
+	} else {
+		distance = TA0CCR0 - up_counter;
+	}
+	//Clear interrupt flag
+	TA0CTL &= ~TAIFG;
+}
+
+/* Timer A1 Interrupt Handler
+ * Stepper motor pulsing
+ */
+#pragma vector=TIMER1_A0_VECTOR
+__interrupt void TimerA1(void){
+	P3OUT ^= BIT7;	//Toggle P3.7 Stepper step pin
+	step_position++;
+}
 
 /* ADC12 Interrupt Handler
  * Grab conversion from ADC, put into internal buffer
@@ -2424,9 +3056,9 @@ __interrupt void ADC12_ISR(void){
 		adc_internal_buffer[0] = ADC12MEM[0];	//5Vsense
 		adc_internal_buffer[1] = ADC12MEM[1];	//12Vsense
 		adc_internal_buffer[2] = ADC12MEM[2];	//6VA sense
-		adc_internal_buffer[3] = ADC12MEM[3];	//Hall pos 1
-		adc_internal_buffer[4] = ADC12MEM[4];	//Hall pos 2
-		adc_internal_buffer[5] = ADC12MEM[5];	//Hall pos 3
+		adc_internal_buffer[3] = ADC12MEM[3];	//Hall pos 1 (Chimney encoder)
+		adc_internal_buffer[4] = ADC12MEM[4];	//Hall pos 2 (Compact encoder)
+		adc_internal_buffer[5] = ADC12MEM[5];	//Hall pos 3 (Bin encoder)
 		adc_internal_buffer[6] = ADC12MEM[6];	//Temp
 		adc_internal_buffer[7] = ADC12MEM[7];	//3.3V sense
 		adc12_int_done_flag = 1;

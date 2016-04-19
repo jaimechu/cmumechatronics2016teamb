@@ -10,6 +10,18 @@
 
 #include "utils.h"
 
+/* Create ascii character representation of numerical byte
+ * data: number to be converted
+ * high_char: pointer to high nibble character
+ * mid_char: pointer to middle nibble character
+ * low_char: pointer to low nibble character
+ */
+void dec2ascii_byte(uint8_t data, uint8_t *high_char, uint8_t *mid_char, uint8_t *low_char){
+	*low_char = data % 10 + '0'; // Ones digit
+	*mid_char = (data/10)%10 + '0';
+	*high_char = (data/100) + '0';
+	return;
+}
 
 /* Create numerical byte from hex ascii characters
  * high_char: ascii code for high nibble

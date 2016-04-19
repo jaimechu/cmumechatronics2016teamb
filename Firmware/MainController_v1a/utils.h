@@ -32,7 +32,7 @@ extern volatile uint16_t err_log[ERR_LOG_SIZE];
 extern volatile uint8_t err_log_ptr;
 extern volatile uint8_t err_flag;
 
-
+void dec2ascii_byte(uint8_t data, uint8_t *high_char, uint8_t *mid_char, uint8_t *low_char);
 uint8_t ascii2hex_byte(uint8_t high_char, uint8_t low_char);
 void hex2ascii_byte(uint8_t data, uint8_t *high_char, uint8_t *low_char);
 void hex2ascii_int(uint16_t data, uint8_t *char4, uint8_t *char3, uint8_t *char2, uint8_t *char1);
