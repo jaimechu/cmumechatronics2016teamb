@@ -14,7 +14,7 @@
 #include "utils.h"
 #include "err_warn_codes.h"
 
-#define I2C_BUF_SIZE 16
+#define I2C_BUF_SIZE 88
 struct I2C_data_struct{
 	uint8_t tx_bytes[I2C_BUF_SIZE];	//Bytes to send to slave
 	uint8_t rx_bytes[I2C_BUF_SIZE];	//Bytes recieved from slave

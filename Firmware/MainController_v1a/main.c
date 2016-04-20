@@ -114,7 +114,7 @@ volatile ldc_state_t ldc_current_state = IDLE;
 #define LDC_WAIT_THRESH 10000//250
 #define LDC_WAIT_THRESH_MIN 150
 
-#define LDC_METAL_L 0x0100
+#define LDC_METAL_H 0x0630
 #define LDC_METAL_NO_COMPT 0x1000
 #define LDC_WOOD_H 0x100
 
@@ -209,7 +209,7 @@ uint16_t opt_max_time = 0;
 #define BIN_CMD 0x0C04
 
 // TODO: Uncomment when UI is ready
-//#define NO_UI
+#define NO_UI
 //TODO: Uncomment for actual run
 #define RAW_DATA_PRINT
 
@@ -230,9 +230,9 @@ uint8_t is_inside_interval(uint16_t test_val, uint16_t low_thresh, uint16_t high
 
 typedef enum  {I2C_SEND_MOTOR,
 			   I2C_WAIT1,
-			   I2C_SEND_UI,
+			   I2C_HOME_CURSOR,
 			   I2C_WAIT2,
-			   I2C_CHECK_SWITCH,
+			   I2C_SEND_UI,
 			   I2C_WAIT3,
 			   I2C_CLOSE} i2c_state_t;
 volatile i2c_state_t i2cCurrState = I2C_SEND_MOTOR;
@@ -360,8 +360,8 @@ const uint8_t ui_buf[80] = "PL:000  GL:000  xxxxxxxXxxxxxxxXxxxxxxxXMT:000  OT:0
 #define MASS_OFFSET_END 0xB360
 #define OPT_OFFSET_START 0x2F50
 #define OPT_OFFSET_END 0x6F50
-#define LDC_OFFSET_START 0
-#define LDC_OFFSET_END 0x4000
+#define LDC_OFFSET_START 0x100// 0x1D00
+#define LDC_OFFSET_END 0x500 // 0x38B0
 
 uint16_t last_insert_pos = 0;
 
@@ -387,6 +387,7 @@ volatile uint8_t last_paddle = 0;
 
 /* Compact Functional task globals */
 #define COMPACT_SPEED 0x000
+uint16_t get_curr_compact_pos(void);
 void compact_task();
 
 
@@ -523,13 +524,11 @@ int main(void) {
 	motor_pwm_setup();
 	MOTOR_SPI_setup(0,0); // Idle low, output on rising
 	stepper_setup();
-	//LDC_SPI_setup(0,1);
-	//monitor_setup();
+	LDC_SPI_setup(0,1); //LDC
     // Enable Interrupts
     __bis_SR_register(GIE);
-    //ldc_setup(0);
-   // ldc_setup(1);
-    //ldc_setup(2);
+    ldc_setup(0); 		//LDC
+    ldc_setup(1); 		//LDC
     motor_enable_setup();
     led_setup();
 
@@ -549,10 +548,9 @@ int main(void) {
         sys_task();
     	debug_task();
         adc_task();
-        //ldc_task();
+        ldc_task();
         mass_task();
         opt_task();
-        //monitor_task();
         i2c_task();
         motor_spi_task();
         chimney_task();
@@ -856,7 +854,7 @@ void ldc_task(void){
 
 		if(ldc_stop && is_LDC_spi_rx_ready()){		//T4.8  (FOR DEBUG)
 			ldc_current_state = COMPUTE;
-		} else if (ldc_sensor_data_check_outside(curr_buf)) {
+		} else if (ldc_sensor_data_check_outside(curr_buf)  && is_LDC_spi_rx_ready()) {
 			ldc_current_state = COMPUTE;
 		} else if(!ldc_stop && is_LDC_spi_rx_ready()){//T4.16
 			ldc_current_state = REPOLL_BRD0;
@@ -900,13 +898,17 @@ void ldc_task(void){
 		dbg_uart_send_byte(10);
 		dbg_uart_send_byte(13);
 #endif
-		if((max_diff > min_diff) && (max_diff > LDC_METAL_L)){
+		if((max_diff > min_diff) && (min_diff > LDC_METAL_H)){
 			ldc_result = METAL;
+			/*
 		} else if ((min_diff < max_diff) && (min_diff < LDC_WOOD_H)){
 			ldc_result = OTHER;
+			*/
 		} else {
 			ldc_result = NOT_METAL;
 		}
+
+		ldc_final_val = ldc_min_val;
 
 		if(curr_buf == 1){
 			sensor_data1.LDC_result = ldc_result;
@@ -1182,7 +1184,13 @@ void mass_task(void){
 		}
 
 		//TODO: Final computation of final_result
-		if(opt_max_time == 0 && hist_delta_bin == 0){
+		if(ldc_final_val < LDC_METAL_H) {
+			dbg_uart_send_string("Metal",5);
+			dbg_uart_send_byte(13);		//CR
+			dbg_uart_send_byte(10);		//Line feed
+			total_count.metal++;
+			bin_int_request = BIN_METAL;
+		} else if(opt_max_time == 0 && hist_delta_bin == 0){
 			dbg_uart_send_string("Other",5);
 			dbg_uart_send_byte(13);		//CR
 			dbg_uart_send_byte(10);		//Line feed
@@ -1219,10 +1227,13 @@ void mass_task(void){
 		// Release buffers
 		if(curr_buf == 1){
 			sensor_data1.obj_en = 0;
+			dbg_uart_send_string("BR1",3);
 		} else if(curr_buf == 2){
 			sensor_data2.obj_en = 0;
+			dbg_uart_send_string("BR2",3);
 		} else if (curr_buf == 3){
 			sensor_data3.obj_en = 0;
+			dbg_uart_send_string("BR3",3);
 		} else {
 			issue_warning(WARN_MASS_TASK_STOP_ILLEGAL_BUF3);
 		}
@@ -1484,9 +1495,24 @@ void i2c_task(void){
 		// Do nothing
 		//State transistion
 		if(is_I2C_rx_ready()){
-			i2cCurrState = I2C_SEND_UI;
+			i2cCurrState = I2C_HOME_CURSOR;
 		} else {
 			i2cCurrState = I2C_WAIT1;
+		}
+		break;
+	case I2C_HOME_CURSOR:
+		end_I2C_transac();
+		buf[0] = 0xFE;
+		buf[1] = 0x45;
+		buf[2] = 0x00; // Set to col1, row1
+		init_I2C_transac(buf,3,I2C_ADDR_UI_IO);
+		i2cCurrState = I2C_WAIT2;
+		break;
+	case I2C_WAIT2:
+		if(is_I2C_rx_ready()){
+			i2cCurrState = I2C_SEND_UI;
+		} else {
+			i2cCurrState = I2C_WAIT2;
 		}
 		break;
 	case I2C_SEND_UI:
@@ -1496,7 +1522,7 @@ void i2c_task(void){
 		for(i=0; i<80;i++){
 			buf[i] = ui_buf[i];
 		}
-		if(total_count.plastic_full) {
+		if(!total_count.plastic_full) {
 			dec2ascii_byte(total_count.plastic, &buf[UI_PLASTIC_INDEX], &buf[UI_PLASTIC_INDEX+1], &buf[UI_PLASTIC_INDEX+2]);
 		} else {
 			buf[UI_PLASTIC_INDEX] = 'F';
@@ -1504,7 +1530,7 @@ void i2c_task(void){
 			buf[UI_PLASTIC_INDEX+2] = 'L';
 			buf[UI_PLASTIC_INDEX+3] = 'L';
 		}
-		if(total_count.glass_full) {
+		if(!total_count.glass_full) {
 			dec2ascii_byte(total_count.glass, &buf[UI_GLASS_INDEX], &buf[UI_GLASS_INDEX+1], &buf[UI_GLASS_INDEX+2]);
 		} else {
 			buf[UI_GLASS_INDEX] = 'F';
@@ -1512,7 +1538,7 @@ void i2c_task(void){
 			buf[UI_GLASS_INDEX+2] = 'L';
 			buf[UI_GLASS_INDEX+3] = 'L';
 		}
-		if(total_count.metal_full) {
+		if(!total_count.metal_full) {
 			dec2ascii_byte(total_count.metal, &buf[UI_METAL_INDEX], &buf[UI_METAL_INDEX+1], &buf[UI_METAL_INDEX+2]);
 		} else {
 			buf[UI_METAL_INDEX] = 'F';
@@ -1520,7 +1546,7 @@ void i2c_task(void){
 			buf[UI_METAL_INDEX+2] = 'L';
 			buf[UI_METAL_INDEX+3] = 'L';
 		}
-		if(total_count.other_full) {
+		if(!total_count.other_full) {
 			dec2ascii_byte(total_count.other, &buf[UI_OTHER_INDEX], &buf[UI_OTHER_INDEX+1], &buf[UI_OTHER_INDEX+2]);
 		} else {
 			buf[UI_OTHER_INDEX] = 'F';
@@ -1528,20 +1554,19 @@ void i2c_task(void){
 			buf[UI_OTHER_INDEX+2] = 'L';
 			buf[UI_OTHER_INDEX+3] = 'L';
 		}
-		init_I2C_transac(buf,2,I2C_ADDR_UI_IO);
+		init_I2C_transac(buf,80,I2C_ADDR_UI_IO);
 #endif
 		//State transistion
-		i2cCurrState = I2C_WAIT2;
+		i2cCurrState = I2C_WAIT3;
 		break;
-	case I2C_WAIT2:
+	case I2C_WAIT3:
 		//State action
 		//Do nothing
-
 		//State transistion
 		if(is_I2C_rx_ready()){
 			i2cCurrState = I2C_CLOSE;
 		} else {
-			i2cCurrState = I2C_WAIT2;
+			i2cCurrState = I2C_WAIT3;
 		}
 		break;
 	case I2C_CLOSE:
@@ -1801,6 +1826,7 @@ void chimney_task(void){
 			sensor_data1.opt_end = currChimPos + OPT_OFFSET_END ;
 			sensor_data1.LDC_start = currChimPos + LDC_OFFSET_START;
 			sensor_data1.LDC_end = currChimPos + LDC_OFFSET_END;
+			dbg_uart_send_string("BI1",3);
 		} else if(!sensor_data2.obj_en){
 			sensor_data2.obj_en = 1;
 			sensor_data2.mass_start = currChimPos + MASS_OFFSET_START;
@@ -1809,6 +1835,7 @@ void chimney_task(void){
 			sensor_data2.opt_end = currChimPos + OPT_OFFSET_END ;
 			sensor_data2.LDC_start = currChimPos + LDC_OFFSET_START;
 			sensor_data2.LDC_end = currChimPos + LDC_OFFSET_END;
+			dbg_uart_send_string("BI2",3);
 		} else if(!sensor_data3.obj_en){
 			sensor_data3.obj_en = 1;
 			sensor_data3.mass_start = currChimPos + MASS_OFFSET_START;
@@ -1817,8 +1844,10 @@ void chimney_task(void){
 			sensor_data3.opt_end = currChimPos + OPT_OFFSET_END ;
 			sensor_data3.LDC_start = currChimPos + LDC_OFFSET_START;
 			sensor_data3.LDC_end = currChimPos + LDC_OFFSET_END;
+			dbg_uart_send_string("BI3",3);
 		} else {
 			issue_warning(WARN_NO_AVAIL_BUF);
+			dbg_uart_send_string("BN",2);
 		}
 		//State transistion
 		chimneyCurrState = CHIM_RUNALL;
@@ -2206,6 +2235,10 @@ void bin_full_task(void){
 
 /** Compacting Task Function **/
 
+uint16_t get_curr_compact_pos(void){
+	volatile uint16_t currCompactPos = (adc_output_buffer[4] <<4 );
+	return currCompactPos; // Hall pos 3
+}
 void compact_task(){
 	return;
 }
@@ -2783,12 +2816,19 @@ void debug_task(void){
 			response_size = 6;
 			dbg_uart_send_string(response_buf,response_size);
 		} else if((strncmp(debug_cmd_buf,"m2 pos",6)==0) && (debug_cmd_buf_ptr == 6)){
-			uint16_t currBinPos = get_curr_bin_pos();
+			uint16_t currCompactPos = get_curr_compact_pos();
 			response_buf[0] = '0';
 			response_buf[1] = 'x';
-			hex2ascii_int(currBinPos, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+			hex2ascii_int(currCompactPos, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
 			response_size = 6;
 			dbg_uart_send_string(response_buf,response_size);
+		} else if((strncmp(debug_cmd_buf,"m3 pos",6)==0) && (debug_cmd_buf_ptr == 6)){
+				uint16_t currBinPos = get_curr_bin_pos();
+				response_buf[0] = '0';
+				response_buf[1] = 'x';
+				hex2ascii_int(currBinPos, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
+				response_size = 6;
+				dbg_uart_send_string(response_buf,response_size);
 		} else if ((strncmp(debug_cmd_buf,"bin",3)==0) && (debug_cmd_buf_ptr == 3)) {
 			bin_ready = 1;
 		} else {
@@ -2844,9 +2884,9 @@ __interrupt void ADC12_ISR(void){
 	 * 2: A2 (6V Analog sense)
 	 * 6: A10 (MCU temp)
 	 * 7: A11 (3.3V sense)
-	 * 3: A3 (Hall Position Encoder 1)
-	 * 4: A4 (Hall Position Encoder 2)
-	 * 5: A5 (Hall Position Encoder 3)
+	 * 3: A3 (Hall Position Encoder 1 - Chimney )
+	 * 4: A4 (Hall Position Encoder 2 - Compact)
+	 * 5: A5 (Hall Position Encoder 3 - Bins )
 	 * 10: A12 (Hall Position Encoder 6) UNUSED: Reassigned to LDC_CS2
 	 * 11-18: A8 (Optical bank, 8 channels) UNUSED
 	 * 19-26: A13 (Hall Bank A, 8 channels)

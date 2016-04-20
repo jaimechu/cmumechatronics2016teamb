@@ -34,7 +34,7 @@ volatile struct I2C_data_struct I2C_data = {
 void i2c_uscib1_setup(void){
 	//Toggle SCL to release bus
 	P4DIR |= BIT2;
-	while(!(P4IN &= BIT1)){
+	while(!(P4IN & BIT1)){
 		P4OUT ^= BIT2;
 	}
 	P4DIR &= ~BIT2;
@@ -44,7 +44,7 @@ void i2c_uscib1_setup(void){
 	UCB1CTL0 |= UCMST + UCMODE_3 + UCSYNC;	//I2C Master, synchronous mode
 	UCB1CTL1 = UCSSEL_2 + UCSWRST;            // Use SMCLK, keep SW reset
 	UCB1BR0 = 0xf4;                             // fSCL = SMCLK/500 = ~50kHz
-	UCB1BR1 = 0x02;
+	UCB1BR1 = 0x01; // 0x02;
 	UCB1CTL1 &= ~UCSWRST;
 	UCB1IE |= UCNACKIE+UCALIE;	//Enable NACK and Arb lost interrupts
 }
