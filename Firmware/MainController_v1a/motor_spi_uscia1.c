@@ -19,7 +19,7 @@
  * SPI Pinout to Motors
  * Uses USCIA1
  * P4.0: SCK
- * P4.3: MISO
+ * P4.5: MISO
  * P4.4: MOSI
  * P2.4: Motor 1 CS (active low)
  * P2.6: Motor 2 CS (active low)
@@ -65,7 +65,7 @@ void MOTOR_SPI_setup(uint8_t idle, uint8_t edge){
 	UCA1BR0 = 250;			//No divider, run at ~1MHz
 
 	//Enable use of SPI pins MOSI, MISO, SCK
-	P4SEL |= BIT0 | BIT3 | BIT4;
+	P4SEL |= BIT0 | BIT4 | BIT5;
 
 	//CS1 on P2.4, set output high (disabled)
 	P2DIR |= BIT4;

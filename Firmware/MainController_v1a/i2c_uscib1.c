@@ -44,8 +44,9 @@ void i2c_uscib1_setup(void){
 	UCB1CTL0 |= UCMST + UCMODE_3 + UCSYNC;	//I2C Master, synchronous mode
 	UCB1CTL1 = UCSSEL_2 + UCSWRST;            // Use SMCLK, keep SW reset
 	UCB1BR0 = 0xf4;                             // fSCL = SMCLK/500 = ~50kHz
-	UCB1BR1 = 0x01;
+	UCB1BR1 = 0x02;
 	UCB1CTL1 &= ~UCSWRST;
+	UCB1IE |= UCNACKIE+UCALIE;	//Enable NACK and Arb lost interrupts
 }
 
 /* SM loads I2C datastructure, start transaction

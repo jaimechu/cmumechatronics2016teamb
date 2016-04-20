@@ -28,6 +28,7 @@
 #define OPAQUE 6
 #define HEAVY 7
 #define LIGHT 8
+#define NOT_METAL 9
 
 
 /** Debug task macros and globals **/
@@ -53,62 +54,6 @@ volatile uint16_t err_log[ERR_LOG_SIZE] = {0};
 volatile uint8_t err_log_ptr = 0;
 volatile uint8_t err_flag = 0;
 /** END Warning/Error code buffers and flags **/
-
-/** Monitoring task globals **/
-/* Struct to store monitoring data
- * Analog readings: Array contains current value | min value | max value | ready flag
- */
-void monitor_task(void);
-void monitor_setup(void);
-
-//TODO: Update monitoring parameters
-struct monitor_data_struct{
-	uint16_t vsense_3V3[4];		//12-bit conversion of 3.3V rail voltage
-	uint16_t vsense_5V0[4];		//12-bit conversion of 5V rail voltage
-	uint16_t vsense_6VA[4];		//12-bit conversion of 6V analog rail voltage
-	uint16_t vsense_12V[4];		//12-bit conversion of 12V rail voltage
-	uint16_t mcu_temp[4];		//12-bit conversion of MSP430 temperature
-	uint8_t estop_status;		//Set when ESTOP condition is active
-};
-struct monitor_data_struct monitor_data = {
-		.vsense_3V3 = {0},
-		.vsense_5V0 = {0},
-		.vsense_6VA = {0},
-		.vsense_12V = {0},
-		.mcu_temp = {0},
-		.estop_status = 0
-};
-//TODO: Update thresholds
-#define VSENSE_3V3_MIN 0x0000
-#define VSENSE_3V3_MAX 0xFFFF
-#define VSENSE_5V0_MIN 0x0000
-#define VSENSE_5V0_MAX	0xFFFF
-#define VSENSE_6VA_MIN 0x0000
-#define VSENSE_6VA_MAX 0xFFFF
-#define VSENSE_12V_MIN	0x0000
-#define VSENSE_12V_MAX	0xFFFF
-#define MCU_TEMP_MIN	0x0000
-#define MCU_TEMP_MAX	0xFFFF
-
-//TODO: Change to ADC task
-typedef enum  {MON_WAIT,
-				START_ADC1,	//Drill-
-				WAIT_ADC1,
-				START_ADC2,	//Drill+
-				WAIT_ADC2,
-				START_ADC8,	//5Vsense
-				WAIT_ADC8,
-				START_ADC9,	//12Vsense
-				WAIT_ADC9,
-				START_ADC10,	//Temp
-				WAIT_ADC10,
-				START_ADC11,//3.3V divider
-				WAIT_ADC11,
-				SEND_MON_PCKT} mon_state_t;
-volatile mon_state_t monCurrState = MON_WAIT;
-#define MON_CNT_THRESH 100
-
-/** END Monioring task globals **/
 
 /** ADC task globals **/
 void adc_setup(void);
@@ -168,13 +113,23 @@ typedef enum {IDLE,
 volatile ldc_state_t ldc_current_state = IDLE;
 #define LDC_WAIT_THRESH 10000//250
 #define LDC_WAIT_THRESH_MIN 150
+
+#define LDC_METAL_L 0x0100
+#define LDC_METAL_NO_COMPT 0x1000
+#define LDC_WOOD_H 0x100
+
+#define NUM_LDC_SENSORS 2
 //TODO: Change buffer size
-uint16_t ldc_data_buf[3] = {0};
+
+uint16_t ldc_data_buf[NUM_LDC_SENSORS] = {0};
 uint8_t ldc_data_buf_ptr = 0;
 
 uint8_t ldc_run = 0;
 uint8_t ldc_stop = 0;
 uint16_t ldc_final_val = 0;
+
+uint8_t ldc_sensor_data_check_inside();
+uint8_t ldc_sensor_data_check_outside (uint8_t curr_buf);
 
 uint16_t ldc_get_proximity(uint8_t brd);
 void ldc_setup(uint8_t brd);
@@ -254,7 +209,9 @@ uint16_t opt_max_time = 0;
 #define BIN_CMD 0x0C04
 
 // TODO: Uncomment when UI is ready
-#define NO_UI
+//#define NO_UI
+//TODO: Uncomment for actual run
+#define RAW_DATA_PRINT
 
 uint8_t chimney_motor_enable = 0;
 uint8_t bin_motor_enable = 0;
@@ -383,7 +340,7 @@ const uint8_t ui_buf[80] = "PL:000  GL:000  xxxxxxxXxxxxxxxXxxxxxxxXMT:000  OT:0
 #define UI_GLASS_INDEX 11
 #define UI_METAL_INDEX 43
 #define UI_OTHER_INDEX 51
-#define I2C_ADDR_UI_IO 0x50
+#define I2C_ADDR_UI_IO 0x28
 /* END Buffer globals */
 
 /* Chimney Functional task globals */
@@ -406,7 +363,6 @@ const uint8_t ui_buf[80] = "PL:000  GL:000  xxxxxxxXxxxxxxxXxxxxxxxXMT:000  OT:0
 #define LDC_OFFSET_START 0
 #define LDC_OFFSET_END 0x4000
 
-uint8_t obj_inserted = 0;
 uint16_t last_insert_pos = 0;
 
 void chimney_task(void);
@@ -513,7 +469,7 @@ uint8_t is_bin_door_open(void);
 #define STEP_DIR_CLOSE 0
 
 #define STEP_CLOSE_POS 0x0000
-#define STEP_TIME 4096
+#define STEP_TIME 0x4000
 
 uint8_t step_switch = 0;
 uint16_t step_position = 0;
@@ -540,6 +496,12 @@ void stepper_disable(void);
 /* Compact Functional task globals */
 /* END Compact Functional task globals*/
 
+/* LED Functional task globals */
+void led_setup(void);
+void led_task(void);
+/* END LED task globals */
+
+
 /** Main Loop **/
 
 int main(void) {
@@ -560,15 +522,16 @@ int main(void) {
 	i2c_uscib1_setup();
 	motor_pwm_setup();
 	MOTOR_SPI_setup(0,0); // Idle low, output on rising
-
+	stepper_setup();
 	//LDC_SPI_setup(0,1);
 	//monitor_setup();
     // Enable Interrupts
     __bis_SR_register(GIE);
     //ldc_setup(0);
-    //ldc_setup(1);
+   // ldc_setup(1);
     //ldc_setup(2);
     motor_enable_setup();
+    led_setup();
 
     /*
     uint16_t i;
@@ -595,6 +558,7 @@ int main(void) {
         chimney_task();
         //bin_task();
         bin_full_task();
+        led_task();
     }
 
 
@@ -621,249 +585,6 @@ int main(void) {
 }
 
 /** END Main Loop **/
-
-/** Monitor Task Functions **/
-
-/* Setup monitoring task */
-/*
-//TODO: Port to ADC task
-void monitor_setup(void){
-	ADC12CTL0 = ADC12SHT1_12 +	//1024 ADCLK cycles for sampling
-				ADC12SHT0_12 +
-				ADC12REF2_5V +	//2.5V reference
-				ADC12REFON +	//Reference on
-				ADC12ON;		//ADC on
-	ADC12CTL1 = ADC12DIV_7 +	//clock divider: 8
-				ADC12SSEL_2 +	//clock source: MCLK
-				ADC12SHP;		//Use sampling timer
-	return;
-}
-
-//TODO: Port to ADC task
-void monitor_task(void){
-	static uint8_t run_mon_cnt = 0;	//Set when Check routine must run
-	static uint16_t drill_vzcr = 0;	//Negative reference for drill current
-	uint8_t pckt_size = 0;				//Size of transmitted packet
-	uint8_t buf[16];					//Buffer for transmitted/recieved packet
-	uint16_t conversion;
-	switch(monCurrState){
-	case MON_WAIT:
-		//State action
-		run_mon_cnt++;
-		//State transition
-		if(run_mon_cnt > MON_CNT_THRESH){
-			run_mon_cnt = 0;
-			monCurrState = START_ADC1;	//T_MON0
-		} else {
-			monCurrState = MON_WAIT;	//T_MON1
-		}
-		break;
-	case START_ADC1:
-		//State action
-		ADC12CTL0 &= ~ADC12ENC;			//Disable conversions to change channel
-		ADC12MCTL0 = ADC12INCH_1;		//A1
-		ADC12CTL0 |= ADC12SC+ADC12ENC;	//Start conversion
-		//State transition
-		monCurrState = WAIT_ADC1;		//T_MON2
-		break;
-	case WAIT_ADC1:
-		//State action: nothing
-		//State transition
-		if(ADC12IFG & ADC12IFG0){
-			monCurrState = START_ADC2;	//T_MON4
-		} else {
-			monCurrState = WAIT_ADC1;	//T_MON3
-		}
-		break;
-	case START_ADC2:
-		//State action
-		drill_vzcr = ADC12MEM0;			//Get drill current reference
-		ADC12CTL0 &= ~ADC12ENC;			//Disable conversions to change channel
-		ADC12MCTL0 = ADC12INCH_2;		//A2
-		ADC12CTL0 |= ADC12SC+ADC12ENC;	//Start conversion
-		//State transition
-		monCurrState = WAIT_ADC2;		//T_MON5
-		break;
-	case WAIT_ADC2:
-		//State action: nothing
-		//State transition
-		if(ADC12IFG & ADC12IFG0){
-			monCurrState = START_ADC8;	//T_MON7
-		} else {
-			monCurrState = WAIT_ADC2;	//T_MON6
-		}
-		break;
-	case START_ADC8:
-		//State action
-		conversion = ADC12MEM0 - drill_vzcr;	//Get drill current
-		monitor_data.drill_current[0] = conversion;
-		if((conversion < monitor_data.drill_current[1]) || !monitor_data.drill_current[3]){
-			monitor_data.drill_current[1] = conversion;
-		}
-		if((conversion > monitor_data.drill_current[2]) || !monitor_data.drill_current[3]){
-			monitor_data.drill_current[2] = conversion;
-		}
-		monitor_data.drill_current[3] = 1;
-		ADC12CTL0 &= ~ADC12ENC;			//Disable conversions to change channel
-		ADC12MCTL0 = ADC12INCH_8;		//A8
-		ADC12CTL0 |= ADC12SC+ADC12ENC;	//Start conversion
-		//State transition
-		monCurrState = WAIT_ADC8;		//T_MON8
-		break;
-	case WAIT_ADC8:
-		//State action: nothing
-		//State transition
-		if(ADC12IFG & ADC12IFG0){
-			monCurrState = START_ADC9;	//T_MON10
-		} else {
-			monCurrState = WAIT_ADC8;	//T_MON9
-		}
-		break;
-	case START_ADC9:
-		//State action
-		conversion = ADC12MEM0;	//Get 5V sense voltage
-		monitor_data.vsense_5V0[0] = conversion;
-		if((conversion < monitor_data.vsense_5V0[1]) || !monitor_data.vsense_5V0[3]){
-			monitor_data.vsense_5V0[1] = conversion;
-		}
-		if((conversion > monitor_data.vsense_5V0[2]) || !monitor_data.vsense_5V0[3]){
-			monitor_data.vsense_5V0[2] = conversion;
-		}
-		monitor_data.vsense_5V0[3] = 1;
-		ADC12CTL0 &= ~ADC12ENC;			//Disable conversions to change channel
-		ADC12MCTL0 = ADC12INCH_9;		//A9
-		ADC12CTL0 |= ADC12SC+ADC12ENC;	//Start conversion
-		//State transition
-		monCurrState = WAIT_ADC9;		//T_MON11
-		break;
-	case WAIT_ADC9:
-		//State action: nothing
-		//State transition
-		if(ADC12IFG & ADC12IFG0){
-			monCurrState = START_ADC10;	//T_MON13
-		} else {
-			monCurrState = WAIT_ADC9;	//T_MON12
-		}
-		break;
-	case START_ADC10:
-		//State action
-		conversion = ADC12MEM0;	//Get 12V sense voltage
-		monitor_data.vsense_12V[0] = conversion;
-		if((conversion < monitor_data.vsense_12V[1]) || !monitor_data.vsense_12V[3]){
-			monitor_data.vsense_12V[1] = conversion;
-		}
-		if((conversion > monitor_data.vsense_12V[2]) || !monitor_data.vsense_12V[3]){
-			monitor_data.vsense_12V[2] = conversion;
-		}
-		monitor_data.vsense_12V[3] = 1;
-		ADC12CTL0 &= ~ADC12ENC;			//Disable conversions to change channel
-		while(REFCTL0 & REFGENBUSY);
-		REFCTL0 = REFMSTR + REFVSEL_0 + REFON;
-		ADC12CTL0 &= ~ADC12REF2_5V;		//1.5V reference
-		ADC12MCTL0 = ADC12INCH_10 + ADC12SREF_1;		//A10, REF+
-		ADC12CTL0 |= ADC12SC+ADC12ENC;	//Start conversion
-		//State transition
-		monCurrState = WAIT_ADC10;		//T_MON14
-		break;
-	case WAIT_ADC10:
-		//State action: nothing
-		//State transition
-		if(ADC12IFG & ADC12IFG0){
-			monCurrState = START_ADC11;	//T_MON16
-		} else {
-			monCurrState = WAIT_ADC10;	//T_MON15
-		}
-		break;
-	case START_ADC11:
-		//State action
-		conversion = ADC12MEM0;	//Get Temp voltage
-		monitor_data.mcu_temp[0] = conversion;
-		if((conversion < monitor_data.mcu_temp[1]) || !monitor_data.mcu_temp[3]){
-			monitor_data.mcu_temp[1] = conversion;
-		}
-		if((conversion > monitor_data.mcu_temp[2]) || !monitor_data.mcu_temp[3]){
-			monitor_data.mcu_temp[2] = conversion;
-		}
-		monitor_data.mcu_temp[3] = 1;
-		ADC12CTL0 &= ~ADC12ENC;			//Disable conversions to change channel
-		while(REFCTL0 & REFGENBUSY);
-		REFCTL0 = REFMSTR + REFVSEL_2 + REFON;
-		ADC12CTL0 |= ADC12REF2_5V;		//2.5V reference
-		ADC12MCTL0 = ADC12INCH_11 + ADC12SREF_1;		//A11, VREF+
-		ADC12CTL0 |= ADC12SC+ADC12ENC;	//Start conversion
-		//State transition
-		monCurrState = WAIT_ADC11;		//T_MON17
-		break;
-	case WAIT_ADC11:
-		//State action: nothing
-		//State transition
-		if(ADC12IFG & ADC12IFG0){
-			monCurrState = SEND_MON_PCKT;//T_MON19
-		} else {
-			monCurrState = WAIT_ADC11;	//T_MON18
-		}
-		break;
-	case SEND_MON_PCKT:
-		//State action
-		conversion = ADC12MEM0;	//Get 3.3V sense voltage
-		monitor_data.vsense_3V3[0] = conversion;
-		if((conversion < monitor_data.vsense_3V3[1]) || !monitor_data.vsense_3V3[3]){
-			monitor_data.vsense_3V3[1] = conversion;
-		}
-		if((conversion > monitor_data.vsense_3V3[2]) || !monitor_data.vsense_3V3[3]){
-			monitor_data.vsense_3V3[2] = conversion;
-		}
-		monitor_data.vsense_3V3[3] = 1;
-		//Check parameters.  All values valid since to reach this state, all conversions must be completed.
-		if(monitor_data.vsense_3V3[0] < VSENSE_3V3_MIN) issue_warning(WARN_LOW_3V3);
-		if(monitor_data.vsense_3V3[0] > VSENSE_3V3_MAX) issue_warning(WARN_HIGH_3V3);
-		if(monitor_data.vsense_5V0[0] < VSENSE_5V0_MIN) issue_warning(WARN_LOW_5V0);
-		if(monitor_data.vsense_5V0[0] > VSENSE_5V0_MAX) issue_warning(WARN_HIGH_5V0);
-		if(monitor_data.vsense_12V[0] < VSENSE_12V_MIN) issue_warning(WARN_LOW_12V);
-		if(monitor_data.vsense_12V[0] > VSENSE_12V_MAX) issue_warning(WARN_HIGH_12V);
-		if(monitor_data.mcu_temp[0] < MCU_TEMP_MIN) issue_warning(WARN_LOW_MCU_TEMP);
-		if(monitor_data.mcu_temp[0] > MCU_TEMP_MAX) issue_warning(WARN_HIGH_MCU_TEMP);
-		if(monitor_data.drill_current[0] < DR_CURRENT_MIN) issue_warning(WARN_LOW_DRILL_CURRENT);
-		if(monitor_data.drill_current[0] > DR_CURRENT_MAX) issue_warning(WARN_HIGH_DRILL_CURRENT);
-		if(monitor_data.estop_status) issue_warning(ESTOP_ACTIVATED);
-		//These parameters are gathered by other tasks, so need to know if ran at least once.
-		if(rc_check_ran_once){
-			if(monitor_data.rc_mbatt[0] < RC_MBATT_MIN) issue_warning(WARN_LOW_RC_MBATT);
-			if(monitor_data.rc_mbatt[0] > RC_MBATT_MAX) issue_warning(WARN_HIGH_RC_MBATT);
-			if(monitor_data.rc_lbatt[0] < RC_LBATT_MIN) issue_warning(WARN_LOW_RC_LBATT);
-			if(monitor_data.rc_lbatt[0] > RC_LBATT_MAX) issue_warning(WARN_HIGH_RC_LBATT);
-			if(monitor_data.m1_current[0] < M_CURRENT_MIN) issue_warning(WARN_LOW_M1_CURRENT);
-			if(monitor_data.m1_current[0] > M_CURRENT_MAX) issue_warning(WARN_HIGH_M1_CURRENT);
-			if(monitor_data.m2_current[0] < M_CURRENT_MIN) issue_warning(WARN_LOW_M2_CURRENT);
-			if(monitor_data.m2_current[0] > M_CURRENT_MAX) issue_warning(WARN_HIGH_M2_CURRENT);
-			if(monitor_data.rc_temp[0] < RC_TEMP_MIN) issue_warning(WARN_LOW_RC_TEMP);
-			if(monitor_data.rc_temp[0] > RC_TEMP_MAX) issue_warning(WARN_HIGH_RC_TEMP);
-			if(monitor_data.rc_status & RC_STAT_M1_OVERCURRENT) issue_warning(WARN_RC_M1_OVERCURRENT);
-			if(monitor_data.rc_status & RC_STAT_M2_OVERCURRENT) issue_warning(WARN_RC_M2_OVERCURRENT);
-			if(monitor_data.rc_status & RC_STAT_ESTOP) issue_warning(WARN_RC_ESTOP);
-			if(monitor_data.rc_status & RC_STAT_TEMP_ERR) issue_warning(WARN_RC_TEMP_ERR);
-			if(monitor_data.rc_status & RC_STAT_TEMP2_ERR) issue_warning(WARN_RC_TEMP2_ERR);
-			if(monitor_data.rc_status & RC_STAT_MBATT_H_ERR) issue_warning(WARN_RC_MBATT_H_ERR);
-			if(monitor_data.rc_status & RC_STAT_LBATT_H_ERR) issue_warning(WARN_RC_LBATT_H_ERR);
-			if(monitor_data.rc_status & RC_STAT_LBATT_L_ERR) issue_warning(WARN_RC_LBATT_L_ERR);
-			if(monitor_data.rc_status & RC_STAT_M1_FAULT) issue_warning(WARN_RC_M1_FAULT);
-			if(monitor_data.rc_status & RC_STAT_M2_FAULT) issue_warning(WARN_RC_M2_FAULT);
-			if(monitor_data.rc_status & RC_STAT_MBATT_H_WARN) issue_warning(WARN_RC_MBATT_H_WARN);
-			if(monitor_data.rc_status & RC_STAT_MBATT_L_WARN) issue_warning(WARN_RC_MBATT_L_WARN);
-			if(monitor_data.rc_status & RC_STAT_TEMP_WARN) issue_warning(WARN_RC_TEMP_WARN);
-			if(monitor_data.rc_status & RC_STAT_TEMP2_WARN) issue_warning(WARN_RC_TEMP2_WARN);
-		}
-		//State transition
-		monCurrState = MON_WAIT;		//T_MON20
-		break;
-	default:
-		issue_warning(WARN_ILLEGAL_MON_SM_STATE);
-		monCurrState = MON_WAIT;
-		break;
-	}
-}
-*/
-/** END Monitor Task Functions **/
 
 /** System Task Function **/
 void sys_task(void){
@@ -1002,19 +723,63 @@ inline void set_hall_B_chnl(uint8_t mux_chnl){
 /** END ADC Task Functions **/
 
 /** LDC Task Functions **/
+uint8_t ldc_sensor_data_check_inside(){
+	uint16_t currChimPos = get_curr_chimney_pos();
+	if(sensor_data1.obj_en && is_inside_interval(currChimPos, sensor_data1.LDC_start, sensor_data1.LDC_end)){
+		return 1;
+	} else if(sensor_data2.obj_en && is_inside_interval(currChimPos, sensor_data2.LDC_start, sensor_data2.LDC_end)){
+		return 2;
+	} else if(sensor_data3.obj_en && is_inside_interval(currChimPos, sensor_data3.LDC_start, sensor_data3.LDC_end)){
+		return 3;
+	}
+	return 0;
+}
+
+uint8_t ldc_sensor_data_check_outside(uint8_t curr_buf){
+	uint16_t currChimPos = get_curr_chimney_pos();
+	if(curr_buf == 1) {
+		if (!is_inside_interval(currChimPos, sensor_data1.LDC_start, sensor_data1.LDC_end)){
+			return 1;
+		}
+		return 0;
+	} else if (curr_buf == 2){
+		if(!is_inside_interval(currChimPos, sensor_data2.LDC_start, sensor_data2.LDC_end)){
+			return 1;
+		}
+		return 0;
+	} else if (curr_buf == 3) {
+		if(!is_inside_interval(currChimPos, sensor_data3.LDC_start, sensor_data3.LDC_end)){
+			return 1;
+		}
+		return 0;
+	}
+	issue_warning(WARN_LDC_TASK_STOP_ILLEGAL_BUF);
+	return 0;
+}
 
 void ldc_task(void){
 	static uint16_t wait_cntr = 0;
+	volatile static uint16_t base_ldc_val = 0;
+	volatile static uint16_t ldc_min_val = 0;
+	volatile static uint16_t ldc_max_val = 0;
+	volatile static uint16_t first_run = 1;
+	uint16_t min_diff = 0;
+	uint16_t max_diff = 0;
+	uint8_t ldc_result = 0;
+	uint8_t response_size = 0;
 	uint8_t buf[8];
+	static uint8_t curr_buf = 0;
 	switch(ldc_current_state){
 	case IDLE:										//STATE 4.1
 		//State action:
 		ldc_stop = 0;
 		//State transition
-		if(ldc_run == 0){							//T4.1
-			ldc_current_state = IDLE;
-		} else {									//T4.2
+		if(ldc_run == 1) { 							// For debug
 			ldc_current_state = POLL_BRD0;
+		} else if (curr_buf = ldc_sensor_data_check_inside()) {
+			ldc_current_state = POLL_BRD0;
+		} else {
+			ldc_current_state = IDLE;
 		}
 		break;
 	case POLL_BRD0:									//STATE 4.2
@@ -1027,12 +792,12 @@ void ldc_task(void){
 		break;
 	case REPOLL_BRD0:								//STATE 4.9
 		//State action
-		ldc_read_reg_multiple_get_data(buf);		//Get Board 2 data
+		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
 		if(buf[1]&DRDY){
-			ldc_data_buf[2] = (buf[3]<<8)|buf[2];
+			ldc_data_buf[1] = (buf[3]<<8)|buf[2];
 		}
 		if(buf[1]&OSC_DEAD){
-			//issue_warning(WARN_LDC2_OSC_DEAD);
+			issue_warning(WARN_LDC2_OSC_DEAD);
 		}
 		ldc_read_reg_multiple_init(LDC_STATUS,buf,3,0);	//Send request for board 0 data
 		wait_cntr = 0;
@@ -1059,6 +824,19 @@ void ldc_task(void){
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 0 data
 		if(buf[1]&DRDY){
 			ldc_data_buf[0] = (buf[3]<<8)|buf[2];
+			// Find min and max values for both boards (0 AND 1)
+			if(first_run) {
+				base_ldc_val = ldc_data_buf[0];
+				ldc_min_val = ldc_data_buf[0];
+				ldc_max_val = ldc_data_buf[0];
+				first_run = 0;
+			} else {
+				if(ldc_data_buf[0] > ldc_max_val){
+					ldc_max_val = ldc_data_buf[0];
+				} else if (ldc_data_buf[0] < ldc_min_val) {
+					ldc_min_val = ldc_data_buf[0];
+				}
+			}
 		}
 		if(buf[1]&OSC_DEAD){
 			issue_warning(WARN_LDC0_OSC_DEAD);
@@ -1067,68 +845,79 @@ void ldc_task(void){
 		wait_cntr = 0;
 		//State transition
 		ldc_current_state = WAIT_BRD1;				//T4.5
+
 		break;
 	case WAIT_BRD1:									//STATE 4.5
 		//State action
 		wait_cntr++;
 		//State transition
 		//if(is_LDC_spi_rx_ready()  && wait_cntr > LDC_WAIT_THRESH_MIN){					//T4.6
-		if(is_LDC_spi_rx_ready()){					//T4.6
-			ldc_current_state = POLL_BRD2;
-		} else if(wait_cntr > LDC_WAIT_THRESH){		//T4.14
-			ldc_current_state = HANG_ERR;
-			issue_warning(WARN_LDC_SPI_HANG1);
-		} else {									//T4.11
-			ldc_current_state = WAIT_BRD1;
-		}
-		break;
-	case POLL_BRD2:									//STATE 4.6
 
-		//State action
-		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
-		if(buf[1]&DRDY){
 
-			ldc_data_buf[1] = (buf[3]<<8)|buf[2];
-		}
-		if(buf[1]&OSC_DEAD){
-			issue_warning(WARN_LDC1_OSC_DEAD);
-		}
-		ldc_read_reg_multiple_init(LDC_STATUS,buf,3,2);
-		wait_cntr = 0;
-		//State transition
-		ldc_current_state = WAIT_BRD2;				//T4.7
-		break;
-	case WAIT_BRD2:									//STATE 4.7
-		//State action
-		wait_cntr++;
-		//State transition
-		//if(ldc_stop && is_LDC_spi_rx_ready()  && wait_cntr > LDC_WAIT_THRESH_MIN){		//T4.8
-		if(ldc_stop && is_LDC_spi_rx_ready()){		//T4.8
+		if(ldc_stop && is_LDC_spi_rx_ready()){		//T4.8  (FOR DEBUG)
+			ldc_current_state = COMPUTE;
+		} else if (ldc_sensor_data_check_outside(curr_buf)) {
 			ldc_current_state = COMPUTE;
 		} else if(!ldc_stop && is_LDC_spi_rx_ready()){//T4.16
 			ldc_current_state = REPOLL_BRD0;
 		} else if(wait_cntr > LDC_WAIT_THRESH){		//T4.15
 			ldc_current_state = HANG_ERR;
-			issue_warning(WARN_LDC_SPI_HANG2);
+			issue_warning(WARN_LDC_SPI_HANG1);
 		} else {									//T4.12
-			ldc_current_state = WAIT_BRD2;
+			ldc_current_state = WAIT_BRD1;
 		}
 		break;
 	case COMPUTE:									//STATE 4.8
 		//State action
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
+		first_run = 1; 								//Reset first run value for next run
 		if(buf[1]&DRDY){
-			ldc_data_buf[2] = (buf[3]<<8)|buf[2];
+			ldc_data_buf[1] = (buf[3]<<8)|buf[2];
 		}
 		if(buf[1]&OSC_DEAD){
 			issue_warning(WARN_LDC1_OSC_DEAD);
 		}
-		ldc_final_val = 0;
-		/*//TODO
-		for(i = 0; i < 3; i++){
-			ldc_final_val += ldc_data_buf[i];
+
+
+		//Add to sensor data
+		//Update buffer
+		max_diff = ldc_max_val - base_ldc_val;
+		min_diff = base_ldc_val - ldc_min_val;
+#ifdef RAW_DATA_PRINT
+		dbg_uart_send_byte('l');
+		dbg_uart_send_byte(9);//TAB
+		hex2ascii_int(ldc_max_val, &buf[0], &buf[1], &buf[2], &buf[3]);	//LDC_MAX_VAL
+		buf[4] = 9;//TAB
+		response_size = 5;
+		dbg_uart_send_string(buf,response_size);
+		hex2ascii_int(ldc_min_val, &buf[0], &buf[1], &buf[2], &buf[3]);	//LDC_MIN_VAL
+		buf[4] = 9;//TAB
+		response_size = 5;
+		dbg_uart_send_string(buf,response_size);
+		hex2ascii_int(base_ldc_val, &buf[0], &buf[1], &buf[2], &buf[3]);	//LDC_BASE_VAL
+		response_size = 4;
+		dbg_uart_send_string(buf,response_size);
+		dbg_uart_send_byte(10);
+		dbg_uart_send_byte(13);
+#endif
+		if((max_diff > min_diff) && (max_diff > LDC_METAL_L)){
+			ldc_result = METAL;
+		} else if ((min_diff < max_diff) && (min_diff < LDC_WOOD_H)){
+			ldc_result = OTHER;
+		} else {
+			ldc_result = NOT_METAL;
 		}
-		*/
+
+		if(curr_buf == 1){
+			sensor_data1.LDC_result = ldc_result;
+		} else if(curr_buf == 2){
+			sensor_data2.LDC_result = ldc_result;
+		} else if (curr_buf == 3){
+			sensor_data3.LDC_result = ldc_result;
+		} else {
+			issue_warning(WARN_MASS_TASK_STOP_ILLEGAL_BUF2);
+		}
+
 		//State transition
 		ldc_current_state = IDLE;					//T4.9
 		break;
@@ -1275,6 +1064,8 @@ void mass_task(void){
 	uint16_t mass_hist_bin2 = 0;
 	static uint8_t curr_buf = 0;
 	uint8_t mass_result = 0;
+	uint8_t response_size = 0;
+	uint8_t buf[8];
 
 	switch(mass_current_state){
 	case MASS_IDLE:							//STATE 2.1
@@ -1355,6 +1146,15 @@ void mass_task(void){
 		} else {
 			hist_delta_bin = mass_hist_bin2 - mass_hist_bin1;
 		}
+#ifdef RAW_DATA_PRINT
+		dbg_uart_send_byte('m');
+		dbg_uart_send_byte(9);//TAB
+		hex2ascii_int(hist_delta_bin, &buf[0], &buf[1], &buf[2], &buf[3]);
+		response_size = 4;
+		dbg_uart_send_string(buf,response_size);
+		dbg_uart_send_byte(10);
+		dbg_uart_send_byte(13);
+#endif
 
 		//Add to sensor data
 		//Update buffer
@@ -1414,8 +1214,9 @@ void mass_task(void){
 			bin_int_request = BIN_OTHER;
 		}
 		bin_request = 1;
+		bin_ready = 0;
 
-
+		// Release buffers
 		if(curr_buf == 1){
 			sensor_data1.obj_en = 0;
 		} else if(curr_buf == 2){
@@ -1478,6 +1279,8 @@ void opt_task(void){
 	static uint16_t wait_cntr = 0;
 	static uint8_t curr_buf = 0;
 	uint8_t opt_result = 0;
+	uint8_t buf[8];
+	uint8_t response_size = 0;
 
 	switch(opt_current_state){
 	case OPT_IDLE:							//STATE 3.1
@@ -1583,6 +1386,19 @@ void opt_task(void){
 			issue_warning(WARN_OPT_TASK_STOP_ILLEGAL_BUF2);
 		}
 #endif
+#ifdef RAW_DATA_PRINT
+		dbg_uart_send_byte('o');
+		dbg_uart_send_byte(9);//TAB
+		hex2ascii_int(opt_low_val, &buf[0], &buf[1], &buf[2], &buf[3]);
+		response_size = 4;
+		dbg_uart_send_string(buf,response_size);
+		dbg_uart_send_byte(9);//TAB
+		hex2ascii_int(opt_max_time, &buf[0], &buf[1], &buf[2], &buf[3]);
+		response_size = 4;
+		dbg_uart_send_string(buf,response_size);
+		dbg_uart_send_byte(10);
+		dbg_uart_send_byte(13);
+#endif
 
 		//State transistion
 		opt_current_state = OPT_IDLE;
@@ -1652,7 +1468,7 @@ void motor_enable_setup(void){
 
 void i2c_task(void){
 	uint8_t buf[80];
-	uint8_t i;
+	uint8_t i = 0;
 	switch(i2cCurrState){
 	case I2C_SEND_MOTOR:
 		//State action
@@ -2405,8 +2221,9 @@ void stepper_setup(void){
 	//Setup TA1.0 to run, pulse pin in interrupt
 	//Up mode, Set/Reset 50% duty
 	TA1CCR0 = STEP_TIME;
-	TA1CTL = TASSEL_2 + MC_0 + TACLR + ID_3+TAIFG;	//SMCLK, off, clear TAR, div8
+	TA1CTL = TASSEL_2 + MC_0 + TACLR + ID_3;	//SMCLK, off, clear TAR, div8
 	TA1EX0 = TAIDEX_7;
+	TA1CCTL0 |= CCIE;
 	return;
 }
 
@@ -2416,7 +2233,7 @@ inline void start_pwm(void){
 }
 
 inline void stop_pwm(void){
-	TA0CTL &= ~MC_3; //Off
+	TA0CTL &= ~MC_3; //Off, clear ouput pin
 	P3OUT &= ~BIT7;
 }
 
@@ -2424,8 +2241,7 @@ uint8_t is_step_switch_pressed(void){
 	return (P2IN & BIT7);
 }
 
-/*
- * STEPPER_STEP - USEL1
+/* STEPPER_STEP - USEL1
  * DIR - USEL2
  * EN - SERVO_OUTPUT ENABLE
  */
@@ -2437,7 +2253,6 @@ void stepper_enable(uint8_t direction){
 	}
 	//Enable
 	sort_motor_enable = 1;
-
 	return;
 }
 void stepper_disable(void){
@@ -2541,6 +2356,30 @@ void step_task(void){
 /** END Stepper Task Function **/
 
 
+/** LED Task Functions **/
+void led_setup(void){
+	P1DIR |= BIT4;
+	P2DIR |= BIT1;
+	P1OUT &= ~BIT4;
+	P2OUT &= ~BIT1;
+}
+
+/* P1.4 - LED_MAINT SWITCH
+ * P2.1 - LED_ON SWITCH
+ */
+void led_task(void){
+	if( P1IN & BIT1){ // MAINT
+		P1OUT |= BIT4;
+	} else {
+		P1OUT &= ~BIT4;
+	}
+	if(P1IN & BIT2) { // ON
+		P2OUT |= BIT1;
+	} else {
+		P2OUT &= ~BIT1;
+	}
+}
+/** END LED Task Function **/
 /** Debug Task functions **/
 
 /* Process debug command functions */
@@ -2666,39 +2505,6 @@ void debug_task(void){
 		} else if((strncmp(debug_cmd_buf,"errclear",8)==0) && (debug_cmd_buf_ptr == 8)){
 			//>errclear
 			clear_errors();
-		} else if((strncmp(debug_cmd_buf,"mon estop",9)==0) && (debug_cmd_buf_ptr == 9)){
-			//>mon estop
-			if(monitor_data.estop_status){
-				response_buf[0] = 'o';
-				response_buf[1] = 'n';
-				response_size = 2;
-			} else {
-				response_buf[0] = 'o';
-				response_buf[1] = 'f';
-				response_buf[2] = 'f';
-				response_size = 3;
-			}
-			dbg_uart_send_string(response_buf,response_size);
-		} else if((strncmp(debug_cmd_buf,"mon mcu temp",12)==0) && (debug_cmd_buf_ptr == 12)){
-			//>mon mcu temp
-			response_size = print_mon_analog_value(monitor_data.mcu_temp, response_buf);
-			dbg_uart_send_string(response_buf,response_size);
-		} else if((strncmp(debug_cmd_buf,"mon 12V",7)==0) && (debug_cmd_buf_ptr == 7)){
-			//>mon 12V
-			response_size = print_mon_analog_value(monitor_data.vsense_12V, response_buf);
-			dbg_uart_send_string(response_buf,response_size);
-		} else if((strncmp(debug_cmd_buf,"mon 3V3",7)==0) && (debug_cmd_buf_ptr == 7)){
-			//>mon 3V3
-			response_size = print_mon_analog_value(monitor_data.vsense_3V3, response_buf);
-			dbg_uart_send_string(response_buf,response_size);
-		} else if((strncmp(debug_cmd_buf,"mon 5V0",7)==0) && (debug_cmd_buf_ptr == 7)){
-			//>mon 5V0
-			response_size = print_mon_analog_value(monitor_data.vsense_5V0, response_buf);
-			dbg_uart_send_string(response_buf,response_size);
-		} else if((strncmp(debug_cmd_buf,"mon 6VA",7)==0) && (debug_cmd_buf_ptr == 7)){
-			//>mon 6VA
-			response_size = print_mon_analog_value(monitor_data.vsense_6VA, response_buf);
-			dbg_uart_send_string(response_buf,response_size);
 		} else if((strncmp(debug_cmd_buf,"opt",3)==0) && (debug_cmd_buf_ptr == 4)){
 			//>opt<number>
 			uint16_t value = 0;
@@ -2928,7 +2734,8 @@ void debug_task(void){
 		} else if((strncmp(debug_cmd_buf,"m4 en",5)==0) && (debug_cmd_buf_ptr == 5)){
 			sort_motor_enable = 1;
 		} else if((strncmp(debug_cmd_buf,"m4 dis",6)==0) && (debug_cmd_buf_ptr == 6)){
-			sort_motor_enable = 0;
+			stop_pwm();
+			stepper_disable();
 		} else if((strncmp(debug_cmd_buf,"m1 r",4)==0) && (debug_cmd_buf_ptr == 4)){
 			set_chimney_direction(MOT_CW);
 		} else if((strncmp(debug_cmd_buf,"m1 l",4)==0) && (debug_cmd_buf_ptr == 4)){
@@ -2962,6 +2769,12 @@ void debug_task(void){
 			speed = ascii2hex_byte(debug_cmd_buf[5], debug_cmd_buf[6]);
 			speed |= (ascii2hex_byte('0',debug_cmd_buf[4])<<8);
 			set_bin_speed(speed);
+		} else if((strncmp(debug_cmd_buf,"m4o",3)==0) && (debug_cmd_buf_ptr == 3)){
+			stepper_enable(STEP_DIR_OPEN);
+			start_pwm();
+		} else if((strncmp(debug_cmd_buf,"m4c",3)==0) && (debug_cmd_buf_ptr == 3)){
+			stepper_enable(STEP_DIR_CLOSE);
+			start_pwm();
 		} else if((strncmp(debug_cmd_buf,"m1 pos",6)==0) && (debug_cmd_buf_ptr == 6)){
 			uint16_t currChimPos = get_curr_chimney_pos();
 			response_buf[0] = '0';
@@ -2976,6 +2789,8 @@ void debug_task(void){
 			hex2ascii_int(currBinPos, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
 			response_size = 6;
 			dbg_uart_send_string(response_buf,response_size);
+		} else if ((strncmp(debug_cmd_buf,"bin",3)==0) && (debug_cmd_buf_ptr == 3)) {
+			bin_ready = 1;
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
@@ -3014,6 +2829,7 @@ __interrupt void TimerA0(void){
 __interrupt void TimerA1(void){
 	P3OUT ^= BIT7;	//Toggle P3.7 Stepper step pin
 	step_position++;
+
 }
 
 /* ADC12 Interrupt Handler
