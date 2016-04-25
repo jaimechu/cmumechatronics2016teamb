@@ -388,10 +388,11 @@ volatile uint8_t last_paddle = 0;
 
 /* Compact Functional task globals */
 #define COMPACT_SPEED 0x9C3 // Max Speed
-#define COMPACT_OPEN_H 0x300
-#define COMPACT_OPEN_L 0x600
-#define COMPACT_CLOSE_H 0x900
-#define COMPACT_CLOSE_L 0xA00
+#define COMPACT_OPEN_H 0xFFF0
+#define COMPACT_OPEN_L 0xFFD0
+#define COMPACT_CLOSE_H 0x43F0
+#define COMPACT_CLOSE_L 0x4240
+
 
 #define COMPACT_ILLEGAL 0
 #define COMPACT_OPEN  1
@@ -424,44 +425,45 @@ volatile compact_state_t compactCurrState = COMPACT_IDLE_OFF;
 /* Bin Functional task globals */
 
 //Bin position thresholds
-#define GLASS_DUMP_L 0x4A00
-#define GLASS_DUMP_H 0x4B00
-#define PLASTIC_DUMP_L 0x0A00
-#define PLASTIC_DUMP_H 0x0B00
-#define METAL_DUMP_L 0xCA00
-#define METAL_DUMP_H 0xCB00
-#define OTHER_DUMP_L 0x8900
-#define OTHER_DUMP_H 0x8A00
+#define GLASS_DUMP_L OTHER_DOOR_L
+#define GLASS_DUMP_H OTHER_DOOR_H
+#define PLASTIC_DUMP_L GLASS_DOOR_L
+#define PLASTIC_DUMP_H GLASS_DOOR_H
+#define METAL_DUMP_L PLASTIC_DOOR_L
+#define METAL_DUMP_H PLASTIC_DOOR_H
+#define OTHER_DUMP_L METAL_DOOR_L
+#define OTHER_DUMP_H METAL_DOOR_H
 
-#define GLASS_DUMP_AVG (GLASS_DUMP_H + GLASS_DUMP_L)/2
-#define PLASTIC_DUMP_AVG (PLASTIC_DUMP_H + PLASTIC_DUMP_L)/2
-#define METAL_DUMP_AVG (METAL_DUMP_H + METAL_DUMP_L)/2
-#define OTHER_DUMP_AVG (OTHER_DUMP_H + OTHER_DUMP_L)/2
+#define GLASS_DUMP_AVG GLASS_DUMP_H// (GLASS_DUMP_H + GLASS_DUMP_L)/2
+#define PLASTIC_DUMP_AVG PLASTIC_DUMP_H // (PLASTIC_DUMP_H + PLASTIC_DUMP_L)/2
+#define METAL_DUMP_AVG METAL_DUMP_H // (METAL_DUMP_H + METAL_DUMP_L)/2
+#define OTHER_DUMP_AVG OTHER_DUMP_H// (OTHER_DUMP_H + OTHER_DUMP_L)/2
 
 
+#define GLASS_DOOR_L 0x4DF0
+#define GLASS_DOOR_H 0x4E90
+#define PLASTIC_DOOR_L 0x82A0
+#define PLASTIC_DOOR_H 0x8320
+#define METAL_DOOR_L 0xDD90 //
+#define METAL_DOOR_H 0xDFC0 //
+#define OTHER_DOOR_L 0x0F50 //
+#define OTHER_DOOR_H 0x10B0 //
 
-#define GLASS_DOOR_L 0x4A00
-#define GLASS_DOOR_H 0x4B00
-#define PLASTIC_DOOR_L 0x0A00
-#define PLASTIC_DOOR_H 0x0B00
-#define METAL_DOOR_L 0xCA00
-#define METAL_DOOR_H 0xCB00
-#define OTHER_DOOR_L 0x8900
-#define OTHER_DOOR_H 0x8A00
 
-#define GLASS_THRESH 0x4A00
-#define PLASTIC_THRESH 0x4B00
-#define METAL_THRESH 0xCB00
-#define OTHER_THRESH 0x8900
+#define GLASS_THRESH OTHER_DOOR_L
+#define PLASTIC_THRESH GLASS_DOOR_L
+#define METAL_THRESH PLASTIC_DOOR_L
+#define OTHER_THRESH METAL_DOOR_L
 
-#define GLASS_HALF_THRESH_L 0x0000
-#define GLASS_HALF_THRESH_H 0xFFF0
-#define PLASTIC_HALF_THRESH_L 0x0000
-#define PLASTIC_HALF_THRESH_H 0xFFF0
-#define METAL_HALF_THRESH_L 0x0000
-#define METAL_HALF_THRESH_H 0xFFF0
-#define OTHER_HALF_THRESH_L 0x0000
-#define OTHER_HALF_THRESH_H 0xFFF0
+#define GLASS_HALF_THRESH_L 0xB180
+#define GLASS_HALF_THRESH_H 0x29D0
+#define PLASTIC_HALF_THRESH_L 0xF360
+#define PLASTIC_HALF_THRESH_H 0x66F0
+#define METAL_HALF_THRESH_L 0x29D0//0x71B0
+#define METAL_HALF_THRESH_H 0xB180 //0xF890
+#define OTHER_HALF_THRESH_L 0x66F0 //0xE1B0 // Overflows
+#define OTHER_HALF_THRESH_H 0xF360//0x53B0
+
 
 #define BIN_SPEED_SLOW 0x439
 #define BIN_SPEED_FAST 0x900
@@ -513,16 +515,19 @@ uint16_t get_target_distance(uint16_t pos, bin_t bin_requested);
 /* END Bin Functional task globals */
 
 /* Stepper Functional task globals */
-#define STEP_DIR_OPEN 1
-#define STEP_DIR_CLOSE 0
+#define STEP_DIR_OPEN 0
+#define STEP_DIR_CLOSE 1
 
-#define STEP_CLOSE_POS 0x0000
-#define STEP_TIME 0x1000
+#define STEP_CLOSE_POS 150
+#define STEP_TIME_FAST 0x700
+#define STEP_TIME_SLOW 0x1000
+
 
 uint8_t step_switch = 0;
-uint16_t step_position = 0;
+volatile uint16_t step_position = 0;
 uint8_t step_close = 0;
 uint8_t step_request = 0;
+uint8_t step_close_dbug = 0;
 
 typedef enum  {STEP_IDLE_OFF,
 			   STEP_FIND_HOME,
@@ -622,7 +627,8 @@ int main(void) {
         compact_task();
         step_task();
         chimney_task();
-        //bin_task();
+        bin_task();
+        //bin_acc_task();
         bin_full_task();
         led_task();
     }
@@ -835,7 +841,7 @@ void ldc_task(void){
 	uint8_t ldc_result = 0;
 	uint8_t response_size = 0;
 	uint8_t buf[8];
-	static uint8_t curr_buf = 0;
+	volatile static uint8_t curr_buf = 0;
 	switch(ldc_current_state){
 	case IDLE:										//STATE 4.1
 		//State action:
@@ -2022,7 +2028,7 @@ uint16_t get_curr_bin_pos(void){
 }
 
 uint16_t get_target_distance(uint16_t pos, bin_t bin_requested){
-	uint8_t distance = 0;
+	uint16_t distance = 0;
 	switch(bin_requested){
 	case BIN_GLASS:
 		if(GLASS_DUMP_AVG > pos){
@@ -2092,19 +2098,20 @@ uint8_t check_bin_request_pos(bin_t bin_requested){
 bin_t check_bin_nearest_pos(void) {
 	//TODO: Fix wraparound issues with encoders
 	volatile uint16_t currBinPos = get_curr_bin_pos();
-	if(currBinPos <= GLASS_THRESH  && currBinPos > PLASTIC_THRESH){
+	if(currBinPos <= PLASTIC_THRESH  && currBinPos > GLASS_THRESH){
 		return BIN_GLASS;
 	}
-	else if(currBinPos <= PLASTIC_THRESH  && currBinPos > METAL_THRESH){
+	else if(currBinPos <= METAL_THRESH  && currBinPos > PLASTIC_THRESH){
 		return BIN_PLASTIC;
 	}
-	else if(currBinPos <= METAL_THRESH && currBinPos > OTHER_THRESH ){
-		return BIN_GLASS;
+	else if(currBinPos <= OTHER_THRESH && currBinPos > METAL_THRESH ){
+		return BIN_METAL;
 	}
 	else {
 		return BIN_OTHER;
 	}
 }
+
 
 /* Check is bin motor encoder val is at 90 degrees with the door - Maint mode*/
 uint8_t check_bin_pos(bin_t bin_requested){
@@ -2138,42 +2145,47 @@ uint8_t check_bin_pos(bin_t bin_requested){
 }
 
 uint8_t get_bin_motor_dir(bin_t bin_requested){
+	/*
 	volatile uint16_t currBinPos = get_curr_bin_pos();
 	uint8_t ret_val = 0;
 	switch(bin_requested){
 	case BIN_GLASS:
 		if(currBinPos < GLASS_HALF_THRESH_H && currBinPos >= GLASS_HALF_THRESH_L){
-			ret_val = 1;
+			ret_val = MOT_CCW;
 		} else {
-			ret_val = 0;
+			ret_val = MOT_CW;
 		}
 		break;
 	case BIN_PLASTIC:
 		if(currBinPos < PLASTIC_HALF_THRESH_H && currBinPos >= PLASTIC_HALF_THRESH_L){
-			ret_val = 1;
+			ret_val = MOT_CCW;
 		} else {
-			ret_val = 0;
+			ret_val = MOT_CW;
 		}
 		break;
 	case BIN_METAL:
-		if(currBinPos < METAL_HALF_THRESH_H && currBinPos >= METAL_HALF_THRESH_L){
-			ret_val = 1;
+		if(currBinPos > METAL_HALF_THRESH_H || currBinPos >= METAL_HALF_THRESH_L){
+			ret_val = MOT_CCW;
 		} else {
-			ret_val = 0;
+			//ret_val = MOT_CW;
+			ret_val = MOT_CCW;
 		}
 		break;
 	case BIN_OTHER:
 		if(currBinPos < OTHER_HALF_THRESH_H && currBinPos >= OTHER_HALF_THRESH_L){
-			ret_val = 1;
+			ret_val = MOT_CCW;
 		} else {
-			ret_val = 0;
+			ret_val = MOT_CW;
 		}
 		break;
 	default:
 		issue_warning(WARN_ILLEGAL_BIN_REQUEST_SM_STATE2);
 	}
 	return ret_val;
+	*/
+	return MOT_CCW;
 }
+
 
 void bin_task(){
 	static bin_t bin_int = BIN_GLASS;
@@ -2276,6 +2288,7 @@ void bin_task(){
 		bin_motor_enable = 0;
 		//State transistions
 		if(bin_request){
+			bin_request = 0;
 			binCurrState = BIN_CHECK_POS;
 		} else {
 			binCurrState = BIN_IDLE_ON;
@@ -2283,9 +2296,8 @@ void bin_task(){
 		break;
 	case BIN_CHECK_POS:
 		//State actions
-		//set_bin_speed(0);
-		//bin_motor_enable = 0;
-		bin_request = 0;
+		set_bin_speed(0);
+		bin_motor_enable = 0;
 		//State transistions
 		if(check_bin_request_pos(bin_int_request)){
 			binCurrState = BIN_AT_POS;
@@ -2295,12 +2307,12 @@ void bin_task(){
 		break;
 	case BIN_RUN_TO_DUMP:
 		//State actions
-		//set_bin_speed(BIN_SPEED);
+		set_bin_speed(BIN_SPEED_FAST);
 		set_bin_direction(get_bin_motor_dir(bin_int_request));
-		//bin_motor_enable = 1;
+		bin_motor_enable = 1;
 		bin_run = 1;
 		start_bin_pos = get_curr_bin_pos();
-		total_distance = get_target_distance(start_bin_pos, bin_int_request);
+		//total_distance = get_target_distance(start_bin_pos, bin_int_request);
 		//State transistions
 		if(check_bin_request_pos(bin_int_request)){
 			binCurrState = BIN_AT_POS;
@@ -2311,9 +2323,9 @@ void bin_task(){
 		break;
 	case BIN_AT_POS:
 		//State actions
-		//set_bin_speed(0);
-		//bin_motor_enable = 0;
-		//bin_ready = 1;
+		set_bin_speed(0);
+		bin_motor_enable = 0;
+		bin_ready = 1;
 		//State transistions
 		binCurrState = BIN_IDLE_ON;
 		break;
@@ -2330,6 +2342,7 @@ void bin_acc_task(){
 	static volatile bin_t binTarget;
 	static volatile uint16_t distance_left;
 	static volatile uint16_t distance_traveled;
+	volatile uint8_t test;
 	switch(accCurrState){
 	case ACC_IDLE:
 		//State action
@@ -2356,7 +2369,7 @@ void bin_acc_task(){
 		//State transition
 		if(distance_traveled > BIN_SPEED_THRESH && distance_left > BIN_SPEED_THRESH){
 			accCurrState = ACC_RUN2;
-		} else if (check_bin_request_pos(binTarget)){
+		} else if (test = check_bin_request_pos(binTarget)){
 			accCurrState = ACC_IDLE;
 			bin_ready = 1;
 		} else {
@@ -2391,8 +2404,8 @@ void bin_acc_task(){
  */
 
 uint8_t check_us_timeroverflow(void){
-	if(TA0CCTL4 & COV) {
-		TA0CCTL4 &= ~COV;
+	if(TA0CTL & TAIFG) {
+		TA0CCTL4 &= ~TAIFG;
 		return 1;
 	}
 	return 0;
@@ -2414,6 +2427,8 @@ void bin_full_setup(void){
 
 void bin_full_task(void){
 	static volatile bin_t currBin = BIN_OTHER;
+	uint8_t buf[16];
+	uint8_t response_size;
 
 	switch(binFullCurrState){
 	case BIN_FULL_IDLE:
@@ -2421,6 +2436,7 @@ void bin_full_task(void){
 		//Do nothing
 		//State transition
 		if(us_request){
+			us_request = 0;
 			binFullCurrState = BIN_FULL_START;
 		} else {
 			binFullCurrState = BIN_FULL_IDLE;
@@ -2441,7 +2457,9 @@ void bin_full_task(void){
 		//State action
 		//Do nothings
 		//State transition
-		if(check_us_timeroverflow() || us_timer_done) {
+		if(check_us_timeroverflow()) {
+			binFullCurrState = BIN_FULL_END;
+		} else if(us_timer_done) {
 			us_timer_done = 0;
 			binFullCurrState = BIN_FULL_END;
 		} else {
@@ -2473,6 +2491,13 @@ void bin_full_task(void){
 				total_count.other_full = 0;
 			}
 		}
+/*
+		hex2ascii_int(distance, &buf[0], &buf[1], &buf[2], &buf[3]);
+		response_size = 4;
+		dbg_uart_send_string(buf,response_size);
+		dbg_uart_send_byte(10);
+		dbg_uart_send_byte(13);*/
+
 		binFullCurrState = BIN_FULL_IDLE;
 		break;
 	default:
@@ -2488,7 +2513,7 @@ void bin_full_task(void){
 
 uint16_t get_curr_compact_pos(void){
 	volatile uint16_t currCompactPos = (adc_output_buffer[4] <<4 );
-	return currCompactPos; // Hall pos 3
+	return currCompactPos; // Hall pos 2
 }
 
 /* Check is compact open or closed */
@@ -2650,7 +2675,7 @@ void stepper_setup(void){
 	P4DIR |= BIT3;		//Direction output
 	//Setup TA1.0 to run, pulse pin in interrupt
 	//Up mode, Set/Reset 50% duty
-	TA1CCR0 = STEP_TIME;
+	TA1CCR0 = STEP_TIME_FAST;
 	TA1CTL = TASSEL_2 + MC_0 + TACLR + ID_3;	//SMCLK, off, clear TAR, div8
 	TA1EX0 = TAIDEX_7;
 	TA1CCTL0 |= CCIE;
@@ -2663,12 +2688,12 @@ inline void start_pwm(void){
 }
 
 inline void stop_pwm(void){
-	TA0CTL &= ~MC_3; //Off, clear ouput pin
+	TA1CTL &= ~MC_3; //Off, clear ouput pin
 	P3OUT &= ~BIT7;
 }
 
 uint8_t is_step_switch_pressed(void){
-	return (P2IN & BIT7);
+	return !(P2IN & BIT7);
 }
 
 /* STEPPER_STEP - USEL1
@@ -2678,8 +2703,10 @@ uint8_t is_step_switch_pressed(void){
 void stepper_enable(uint8_t direction){
 	if(direction){
 		P4OUT |= BIT3;
+		TA1CCR0 = STEP_TIME_FAST;
 	} else {
 		P4OUT &= ~BIT3;
+		TA1CCR0 = STEP_TIME_SLOW;
 	}
 	//Enable
 	sort_motor_enable = 1;
@@ -2696,7 +2723,7 @@ void step_task(void){
 		//State action
 		stop_pwm();
 		stepper_disable();
-		//State transition
+		//State transitions
 		if(sysState == SYS_ON){
 			stepCurrState = STEP_FIND_HOME;
 		} else {
@@ -2731,7 +2758,7 @@ void step_task(void){
 		//State action
 		stop_pwm();
 		stepper_disable();
-		step_close = 0;
+		//step_close = 0; //TODO: UNCOMMENT WHEN US IS READY
 		//State transition
 		if(!(sysState == SYS_ON)) {
 			stepCurrState = STEP_IDLE_OFF;
@@ -2746,6 +2773,7 @@ void step_task(void){
 		if(!(sysState == SYS_ON)) {
 			stepCurrState = STEP_IDLE_OFF;
 		} else if (step_request){
+			step_request = 0;
 			stepCurrState = STEP_MOVE;
 		} else {
 			stepCurrState = STEP_WAIT_REQUEST;
@@ -2753,6 +2781,8 @@ void step_task(void){
 		break;
 	case STEP_MOVE:
 		//State action
+		stepper_enable(STEP_DIR_CLOSE);
+		start_pwm();
 		//State transition
 		if(!(sysState == SYS_ON)) {
 			stepCurrState = STEP_IDLE_OFF;
@@ -2778,6 +2808,9 @@ void step_task(void){
 		step_close = 1;
 		if(!(sysState == SYS_ON)) {
 			stepCurrState = STEP_IDLE_OFF;
+		} else if (step_close_dbug){ // For debug
+			step_close_dbug = 0;
+			stepCurrState = STEP_FIND_HOME;
 		} else if (compact_done && bin_ready){
 			stepCurrState = STEP_FIND_HOME;
 			compact_done = 0;
@@ -3169,8 +3202,6 @@ void debug_task(void){
 			bin_motor_enable = 1;
 		} else if((strncmp(debug_cmd_buf,"m3 dis",6)==0) && (debug_cmd_buf_ptr == 6)){
 			bin_motor_enable = 0;
-		} else if((strncmp(debug_cmd_buf,"m4 en",5)==0) && (debug_cmd_buf_ptr == 5)){
-			sort_motor_enable = 1;
 		} else if((strncmp(debug_cmd_buf,"m4 dis",6)==0) && (debug_cmd_buf_ptr == 6)){
 			stop_pwm();
 			stepper_disable();
@@ -3207,6 +3238,10 @@ void debug_task(void){
 			speed = ascii2hex_byte(debug_cmd_buf[5], debug_cmd_buf[6]);
 			speed |= (ascii2hex_byte('0',debug_cmd_buf[4])<<8);
 			set_bin_speed(speed);
+		} else if((strncmp(debug_cmd_buf,"m4 op",5)==0) && (debug_cmd_buf_ptr == 5)){
+			step_request = 1;
+		} else if((strncmp(debug_cmd_buf,"m4 cl",5)==0) && (debug_cmd_buf_ptr == 5)){
+			step_close_dbug = 1;
 		} else if((strncmp(debug_cmd_buf,"m4o",3)==0) && (debug_cmd_buf_ptr == 3)){
 			stepper_enable(STEP_DIR_OPEN);
 			start_pwm();
@@ -3234,8 +3269,18 @@ void debug_task(void){
 				hex2ascii_int(currBinPos, &response_buf[2], &response_buf[3], &response_buf[4], &response_buf[5]);
 				response_size = 6;
 				dbg_uart_send_string(response_buf,response_size);
+		} else if ((strncmp(debug_cmd_buf,"us",2)==0) && (debug_cmd_buf_ptr == 2)) {
+			us_request = 1;
 		} else if ((strncmp(debug_cmd_buf,"bin",3)==0) && (debug_cmd_buf_ptr == 3)) {
-			bin_ready = 1;
+			bin_request = 1;
+		} else if ((strncmp(debug_cmd_buf,"req g",5)==0) && (debug_cmd_buf_ptr == 5)) {
+			bin_int_request = BIN_GLASS;
+		} else if ((strncmp(debug_cmd_buf,"req p",5)==0) && (debug_cmd_buf_ptr == 5)) {
+			bin_int_request = BIN_PLASTIC;
+		} else if ((strncmp(debug_cmd_buf,"req m",5)==0) && (debug_cmd_buf_ptr == 5)) {
+			bin_int_request = BIN_METAL;
+		} else if ((strncmp(debug_cmd_buf,"req o",5)==0) && (debug_cmd_buf_ptr == 5)) {
+			bin_int_request = BIN_OTHER;
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
@@ -3255,17 +3300,19 @@ void debug_task(void){
 /* Timer A0 Interrupt Handler
  * Ultrasonic bin fullness sensing
  */
-#pragma vector=TIMER0_A0_VECTOR
+#pragma vector=TIMER0_A1_VECTOR
 __interrupt void TimerA0(void){
 	static uint16_t up_counter;
-	if(TA0CCTL0 & CCI){
-		up_counter = TA0CCR0;
+	if(TA0CCTL4 & CCI){
+		up_counter = TA0CCR4;
 	} else {
-		distance = TA0CCR0 - up_counter;
+		distance = TA0CCR4 - up_counter;
 		us_timer_done = 1;
+
 	}
 	//Clear interrupt flag
 	TA0CTL &= ~TAIFG;
+	TA0CCTL4 &= ~CCIFG;
 }
 
 /* Timer A1 Interrupt Handler
