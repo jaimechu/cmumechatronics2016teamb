@@ -474,7 +474,8 @@ volatile compact_state_t compactCurrState = COMPACT_IDLE_OFF;
 typedef enum  {BIN_PLASTIC,
 			   BIN_GLASS,
 			   BIN_METAL,
-			   BIN_OTHER } bin_t;
+			   BIN_OTHER,
+			   BIN_NONE} bin_t;
 bin_t binCurr = BIN_PLASTIC;
 
 
@@ -498,6 +499,7 @@ volatile acc_state_t accCurrState = ACC_IDLE;
 
 uint8_t bin_request = 0; //TODO: Issue request in mass_task
 bin_t bin_int_request = BIN_GLASS;
+bin_t prev_bin_int_request = BIN_NONE;
 uint8_t bin_ready = 0;
 uint16_t start_bin_pos = 0;
 uint16_t total_distance = 0;
@@ -575,7 +577,6 @@ void bin_full_task(void);
 /** Main Loop **/
 
 int main(void) {
-
 	WDTCTL = WDTPW + WDTHOLD;   // Stop watchdog timer
 	P1DIR |= BIT0;	//Debug LED1
 	P2DIR |= BIT2;	//Debug LED2
@@ -602,18 +603,6 @@ int main(void) {
     //ldc_setup(1); 		//LDC
     motor_enable_setup();
     led_setup();
-
-    /*
-    uint16_t i;
-    uint8_t buf[4] = {65,65,65,65};
-    while(1){
-    	init_I2C_transac(buf,1,0x28);
-    	while(!is_I2C_rx_ready());
-    	end_I2C_transac();
-    	for(i=0; i<50000; i++);
-    	buf[0]++;
-    }
-*/
     while(1)
     {
         sys_task();
@@ -632,28 +621,6 @@ int main(void) {
         bin_full_task();
         led_task();
     }
-
-
-/*
-    uint8_t resp = 0;
-    volatile uint16_t prox_data = 0;
-    volatile uint8_t buf[16] = {0};
-    while(1){
-    	resp = ldc_read_reg(0x00,1);
-    	if(resp != 0x80){
-    		while(1);
-    	}
-    	ldc_read_reg_multiple(0x00,buf,6,1);
-    	ldc_read_reg_multiple(0x0A,buf,2,1);
-    	ldc_read_reg_multiple(0x20,buf,6,1);
-    	if(buf[1]&OSC_DEAD){
-    		uint8_t i = 0;
-    		for(i=0; i < 1; i++);
-    	}
-    	prox_data = ldc_get_proximity(1);
-
-    }
-*/
 }
 
 /** END Main Loop **/
@@ -2193,7 +2160,7 @@ void bin_task(){
 	switch(binCurrState){
 	case BIN_IDLE_OFF:
 		//State actions
-		//Do nothing
+		prev_bin_int_request = BIN_NONE;
 		//State transistions
 		if(sysState == SYS_ON){
 				binCurrState = BIN_IDLE_ON;
@@ -2299,7 +2266,9 @@ void bin_task(){
 		set_bin_speed(0);
 		bin_motor_enable = 0;
 		//State transistions
-		if(check_bin_request_pos(bin_int_request)){
+		if(bin_int_request == prev_bin_int_request){		//Already at right bin
+			binCurrState = BIN_AT_POS;
+		} else if(check_bin_request_pos(bin_int_request)){
 			binCurrState = BIN_AT_POS;
 		} else {
 			binCurrState = BIN_RUN_TO_DUMP;
@@ -2323,6 +2292,7 @@ void bin_task(){
 		break;
 	case BIN_AT_POS:
 		//State actions
+		prev_bin_int_request = bin_int_request;
 		set_bin_speed(0);
 		bin_motor_enable = 0;
 		bin_ready = 1;
