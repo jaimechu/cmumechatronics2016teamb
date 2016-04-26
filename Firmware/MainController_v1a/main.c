@@ -387,14 +387,14 @@ volatile uint8_t last_paddle = 0;
 /* END Chimney Functional task globals */
 
 /* Compact Functional task globals */
-#define COMPACT_SPEED 0x9C3 // Max Speed
-#define COMPACT_OPEN_H 0xFFF0
-#define COMPACT_OPEN_L 0xFFD0
-#define COMPACT_CLOSE_H 0x43F0
-#define COMPACT_CLOSE_L 0x4240
+#define COMPACT_SPEED 0x910 // Max Speed
+#define COMPACT_OPEN_H 0x2910
+#define COMPACT_OPEN_L 0x2310
+#define COMPACT_CLOSE_H 0xB5F0
+#define COMPACT_CLOSE_L 0xAC10
 
 
-#define COMPACT_ILLEGAL 0
+#define COMPACT_ILLEGAL 4
 #define COMPACT_OPEN  1
 #define COMPACT_CLOSE 2
 #define COMPACT_NOT_ILLEGAL 3
@@ -440,15 +440,14 @@ volatile compact_state_t compactCurrState = COMPACT_IDLE_OFF;
 #define OTHER_DUMP_AVG OTHER_DUMP_H// (OTHER_DUMP_H + OTHER_DUMP_L)/2
 
 
-#define GLASS_DOOR_L 0x4DF0
-#define GLASS_DOOR_H 0x4E90
-#define PLASTIC_DOOR_L 0x82A0
-#define PLASTIC_DOOR_H 0x8320
-#define METAL_DOOR_L 0xDD90 //
-#define METAL_DOOR_H 0xDFC0 //
-#define OTHER_DOOR_L 0x0F50 //
-#define OTHER_DOOR_H 0x10B0 //
-
+#define GLASS_DOOR_L 0x40A0
+#define GLASS_DOOR_H 0x4DA0
+#define PLASTIC_DOOR_L 0x8050
+#define PLASTIC_DOOR_H 0x82E0
+#define METAL_DOOR_L 0xCFD0 // 0xDD90
+#define METAL_DOOR_H 0xDBD0 // 0xE000
+#define OTHER_DOOR_L 0x0530
+#define OTHER_DOOR_H 0x0EF0
 
 #define GLASS_THRESH OTHER_DOOR_L
 #define PLASTIC_THRESH GLASS_DOOR_L
@@ -2150,7 +2149,7 @@ uint8_t get_bin_motor_dir(bin_t bin_requested){
 	}
 	return ret_val;
 	*/
-	return MOT_CCW;
+	return MOT_CW;
 }
 
 
@@ -2205,7 +2204,7 @@ void bin_task(){
 		set_bin_speed(0);
 		bin_motor_enable = 0;
 		//State transitions
-		if(sysState == SYS_OFF) {
+		if(sysState != SYS_MAINT) {
 			binCurrState = BIN_IDLE_OFF;
 		} else if(is_bin_door_open()){
 			binCurrState = BIN_WAIT_USER;
@@ -2228,22 +2227,22 @@ void bin_task(){
 		//State actions
 		switch(bin_int){
 		case BIN_GLASS:
-			bin_int = BIN_PLASTIC;
-			break;
-		case BIN_PLASTIC:
-			bin_int = BIN_METAL;
-			break;
-		case BIN_METAL:
 			bin_int = BIN_OTHER;
 			break;
-		case BIN_OTHER:
+		case BIN_PLASTIC:
 			bin_int = BIN_GLASS;
+			break;
+		case BIN_METAL:
+			bin_int = BIN_PLASTIC;
+			break;
+		case BIN_OTHER:
+			bin_int = BIN_METAL;
 			break;
 		default:
 			issue_warning(WARN_ILLEGAL_BIN_REQUEST_SM_STATE2);
 		}
 		//State transistions
-		if(sysState == SYS_OFF){
+		if(sysState != SYS_MAINT){
 			binCurrState = BIN_IDLE_OFF;
 		} else {
 			binCurrState = BIN_CHECK_POS_MAINT;
@@ -2254,7 +2253,9 @@ void bin_task(){
 		set_bin_speed(0);
 		bin_motor_enable = 0;
 		//State transistions
-		if(bin_request){
+		if(sysState != SYS_ON){
+			binCurrState = BIN_IDLE_OFF;
+		} else if(bin_request){
 			bin_request = 0;
 			binCurrState = BIN_CHECK_POS;
 		} else {
@@ -2490,12 +2491,12 @@ uint16_t get_curr_compact_pos(void){
 uint8_t check_compact_pos(void){
 	//TODO: Fix illegal and not illegal if checks
 	volatile uint16_t currCompactPos = get_curr_compact_pos();
-	uint8_t ret_val = 0;
+	volatile uint8_t ret_val = 0;
 	if(currCompactPos < COMPACT_OPEN_H && currCompactPos >= COMPACT_OPEN_L){
 		ret_val = COMPACT_OPEN;
 	} else if (currCompactPos < COMPACT_CLOSE_H && currCompactPos >= COMPACT_CLOSE_L) {
 		ret_val = COMPACT_CLOSE;
-	} else if (currCompactPos < COMPACT_CLOSE_L && currCompactPos >= COMPACT_OPEN_H) {
+	} else if (currCompactPos < COMPACT_OPEN_H || currCompactPos >= COMPACT_CLOSE_L) {
 		ret_val = COMPACT_NOT_ILLEGAL;
 	} else {
 		ret_val = COMPACT_ILLEGAL;
@@ -2522,7 +2523,7 @@ void compact_setup(void){
 	UCSCTL5 |= DIVA_5;
 	TA2CTL = TASSEL_1 + ID_3 + MC_1; //SMCLK div 8 Up mode
 	TA2EX0 = TAIDEX_7; // Divide by 8
-	TA2CCR0 = 12207;	//1 sec
+	TA2CCR0 = 40000;// 12207;	//1 sec
 	return;
 }
 
@@ -2544,7 +2545,11 @@ void compact_task(){
 		set_compact_speed(0);
 		compact_motor_enable = 0;
 		//State transistions
-		compactCurrState = COMPACT_CHECK_POS;
+		if(adc_data_ready_flags[4]){
+			compactCurrState = COMPACT_CHECK_POS;
+		} else {
+			compactCurrState = COMPACT_IDLE_ON;
+		}
 		break;
 	case COMPACT_CHECK_POS:
 		//State action
@@ -2558,11 +2563,12 @@ void compact_task(){
 			compactCurrState = OPEN_COMPACT;
 		} else {
 			issue_warning(WARN_ILLEGAL_COMPACT_POS);
-			compactCurrState = COMPACT_ERR;
+			//compactCurrState = COMPACT_ERR;
 		}
 		break;
 	case OPEN_COMPACT:
 		//State action
+		currCompactArea = check_compact_pos();
 		set_compact_direction(MOT_CCW);
 		set_compact_speed(COMPACT_SPEED);
 		compact_motor_enable = 1;
@@ -2581,6 +2587,7 @@ void compact_task(){
 		if(sysState == SYS_OFF) {
 			compactCurrState = COMPACT_IDLE_OFF;
 		} else if(compact_ok){
+			compact_ok = 0;
 			compactCurrState = COMPACT_WAIT;
 		} else {
 			compactCurrState = COMPACT_AT_OPEN;
@@ -2591,7 +2598,8 @@ void compact_task(){
 		set_compact_speed(0);
 		compact_motor_enable = 0;
 		//State transistions
-		if(compact_ok && step_close) {
+		if(step_close) {
+			step_close = 0;
 			reset_compact_timer();
 			compactCurrState = CLOSE_COMPACT;
 		} else {
@@ -2600,17 +2608,18 @@ void compact_task(){
 		break;
 	case CLOSE_COMPACT:
 		//State action
+		currCompactArea = check_compact_pos();
 		set_compact_direction(MOT_CW);
 		set_compact_speed(COMPACT_SPEED);
 		compact_motor_enable = 1;
 		//State transistions
-		if(currCompactArea == COMPACT_CLOSE || check_compact_timeout()){
+		if(currCompactArea == COMPACT_CLOSE){ //|| check_compact_timeout()){
 			compactCurrState = COMPACT_AT_CLOSE;
 		} else if (currCompactArea == COMPACT_OPEN || currCompactArea == COMPACT_NOT_ILLEGAL) {
 			compactCurrState = CLOSE_COMPACT;
 		} else {
 			issue_warning(WARN_ILLEGAL_COMPACT_POS);
-			compactCurrState = COMPACT_ERR;
+			//compactCurrState = COMPACT_ERR;
 		}
 		break;
 	case COMPACT_AT_CLOSE:
@@ -2688,6 +2697,7 @@ void stepper_disable(void){
 }
 
 void step_task(void){
+	volatile uint8_t temp;
 	switch(stepCurrState){
 	case STEP_IDLE_OFF:
 		//State action
@@ -2715,10 +2725,11 @@ void step_task(void){
 		//State action
 		step_position = 0;
 		us_request = 1;
+		temp = is_step_switch_pressed();
 		//State transition
 		if(!(sysState == SYS_ON)) {
 			stepCurrState = STEP_IDLE_OFF;
-		} else if(is_step_switch_pressed()) {
+		} else if(temp) {
 			stepCurrState = STEP_STOP;
 		} else {
 			stepCurrState = STEP_WAIT_HOME;
@@ -3251,6 +3262,10 @@ void debug_task(void){
 			bin_int_request = BIN_METAL;
 		} else if ((strncmp(debug_cmd_buf,"req o",5)==0) && (debug_cmd_buf_ptr == 5)) {
 			bin_int_request = BIN_OTHER;
+		} else if ((strncmp(debug_cmd_buf,"c ok",4)==0) && (debug_cmd_buf_ptr == 4)) {
+			compact_ok = 1;
+
+
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
