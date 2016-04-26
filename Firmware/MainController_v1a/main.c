@@ -104,14 +104,12 @@ typedef enum {IDLE,
 			  WAIT_BRD0,
 			  POLL_BRD1,
 			  WAIT_BRD1,
-			  POLL_BRD2,
-			  WAIT_BRD2,
 			  COMPUTE,
 			  HANG_ERR,
 			  REPOLL_BRD0
 } ldc_state_t;
 volatile ldc_state_t ldc_current_state = IDLE;
-#define LDC_WAIT_THRESH 10000//250
+#define LDC_WAIT_THRESH 60000//250
 #define LDC_WAIT_THRESH_MIN 150
 
 #define LDC_METAL_H 0x0630
@@ -345,24 +343,25 @@ const uint8_t ui_buf[80] = "PL:000  GL:000  xxxxxxxXxxxxxxxXxxxxxxxXMT:000  OT:0
 /* END Buffer globals */
 
 /* Chimney Functional task globals */
-#define DEG0_POS_L 0x4A00
-#define DEG0_POS_H 0x4B00
-#define DEG90_POS_L 0x0A00
-#define DEG90_POS_H 0x0B00
-#define DEG180_POS_L 0xCA00
-#define DEG180_POS_H 0xCB00
-#define DEG270_POS_L 0x8900
-#define DEG270_POS_H 0x8A00
+#define DEG0_POS_L 0x5A00
+#define DEG0_POS_H 0x5B00
+#define DEG90_POS_L 0x08F0
+#define DEG90_POS_H 0x09F0
+#define DEG180_POS_L 0xD200 // Paddle 3
+#define DEG180_POS_H 0xD300
+#define DEG270_POS_L 0x8230 // Paddle 4
+#define DEG270_POS_H 0x8330
 #define FULL_ROT_LOW_THRESH 0x0400
 #define FULL_ROT_HIGH_THRESH 0x0600
 #define CHIM_SPEED 0x439
 
-#define MASS_OFFSET_START  0x7360// Add this to the door value to get the start of mass
-#define MASS_OFFSET_END 0xB360
-#define OPT_OFFSET_START 0x2F50
-#define OPT_OFFSET_END 0x6F50
-#define LDC_OFFSET_START 0x100// 0x1D00
-#define LDC_OFFSET_END 0x500 // 0x38B0
+#define LDC_OFFSET_START 0x000
+#define LDC_OFFSET_END 0x3540
+#define MASS_OFFSET_START  0x825F// Add this to the door value to get the start of mass
+#define MASS_OFFSET_END 0x93CF
+#define OPT_OFFSET_START 0x1B70
+#define OPT_OFFSET_END 0x7E10
+
 
 uint16_t last_insert_pos = 0;
 
@@ -596,11 +595,11 @@ int main(void) {
 	stepper_setup();
 	compact_setup();
 	bin_full_setup();
-	//LDC_SPI_setup(0,1); //LDC
+	LDC_SPI_setup(0,1); //LDC
     // Enable Interrupts
     __bis_SR_register(GIE);
-    //ldc_setup(0); 		//LDC
-    //ldc_setup(1); 		//LDC
+    ldc_setup(0); 		//LDC
+    ldc_setup(1); 		//LDC
     motor_enable_setup();
     led_setup();
     while(1)
@@ -608,7 +607,7 @@ int main(void) {
         sys_task();
     	debug_task();
         adc_task();
-        //ldc_task();
+        ldc_task();
         mass_task();
         opt_task();
         i2c_task();
@@ -776,7 +775,7 @@ uint8_t ldc_sensor_data_check_inside(){
 }
 
 uint8_t ldc_sensor_data_check_outside(uint8_t curr_buf){
-	uint16_t currChimPos = get_curr_chimney_pos();
+	volatile uint16_t currChimPos = get_curr_chimney_pos();
 	if(curr_buf == 1) {
 		if (!is_inside_interval(currChimPos, sensor_data1.LDC_start, sensor_data1.LDC_end)){
 			return 1;
@@ -806,12 +805,13 @@ void ldc_task(void){
 	uint16_t min_diff = 0;
 	uint16_t max_diff = 0;
 	uint8_t ldc_result = 0;
-	uint8_t response_size = 0;
+	//uint8_t response_size = 0;
 	uint8_t buf[8];
 	volatile static uint8_t curr_buf = 0;
 	switch(ldc_current_state){
 	case IDLE:										//STATE 4.1
 		//State action:
+
 		ldc_stop = 0;
 		//State transition
 		if(ldc_run == 1) { 							// For debug
@@ -824,6 +824,7 @@ void ldc_task(void){
 		break;
 	case POLL_BRD0:									//STATE 4.2
 		//State action
+		dbg_uart_send_string("POB0",4);
 		ldc_run = 0;
 		ldc_read_reg_multiple_init(LDC_STATUS,buf,3,0);	//Send request for board 0 data
 		wait_cntr = 0;
@@ -832,6 +833,7 @@ void ldc_task(void){
 		break;
 	case REPOLL_BRD0:								//STATE 4.9
 		//State action
+		dbg_uart_send_string("RPB0",4);
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
 		if(buf[1]&DRDY){
 			ldc_data_buf[1] = (buf[3]<<8)|buf[2];
@@ -847,7 +849,7 @@ void ldc_task(void){
 	case WAIT_BRD0:									//STATE 4.3
 		//State action
 		wait_cntr++;
-
+		dbg_uart_send_string("WAB0 ",5);
 		//State transition
 		//if(is_LDC_spi_rx_ready() && wait_cntr > LDC_WAIT_THRESH_MIN){					//T4.4
 		if(is_LDC_spi_rx_ready()){					//T4.4
@@ -861,6 +863,7 @@ void ldc_task(void){
 		break;
 	case POLL_BRD1:									//STATE 4.4
 		//State action
+		dbg_uart_send_string("POB1",4);
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 0 data
 		if(buf[1]&DRDY){
 			ldc_data_buf[0] = (buf[3]<<8)|buf[2];
@@ -889,6 +892,7 @@ void ldc_task(void){
 		break;
 	case WAIT_BRD1:									//STATE 4.5
 		//State action
+		dbg_uart_send_string("WAB1 ",5);
 		wait_cntr++;
 		//State transition
 		//if(is_LDC_spi_rx_ready()  && wait_cntr > LDC_WAIT_THRESH_MIN){					//T4.6
@@ -898,8 +902,10 @@ void ldc_task(void){
 			ldc_current_state = COMPUTE;
 		} else if (ldc_sensor_data_check_outside(curr_buf)  && is_LDC_spi_rx_ready()) {
 			ldc_current_state = COMPUTE;
+
 		} else if(!ldc_stop && is_LDC_spi_rx_ready()){//T4.16
 			ldc_current_state = REPOLL_BRD0;
+
 		} else if(wait_cntr > LDC_WAIT_THRESH){		//T4.15
 			ldc_current_state = HANG_ERR;
 			issue_warning(WARN_LDC_SPI_HANG1);
@@ -909,6 +915,7 @@ void ldc_task(void){
 		break;
 	case COMPUTE:									//STATE 4.8
 		//State action
+		dbg_uart_send_string("COMP",4);
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
 		first_run = 1; 								//Reset first run value for next run
 		if(buf[1]&DRDY){
@@ -924,8 +931,9 @@ void ldc_task(void){
 		max_diff = ldc_max_val - base_ldc_val;
 		min_diff = base_ldc_val - ldc_min_val;
 #ifdef RAW_DATA_PRINT
+
 		dbg_uart_send_byte('l');
-		dbg_uart_send_byte(9);//TAB
+	/*	dbg_uart_send_byte(9);//TAB
 		hex2ascii_int(ldc_max_val, &buf[0], &buf[1], &buf[2], &buf[3]);	//LDC_MAX_VAL
 		buf[4] = 9;//TAB
 		response_size = 5;
@@ -939,6 +947,7 @@ void ldc_task(void){
 		dbg_uart_send_string(buf,response_size);
 		dbg_uart_send_byte(10);
 		dbg_uart_send_byte(13);
+		*/
 #endif
 		if((max_diff > min_diff) && (min_diff > LDC_METAL_H)){
 			ldc_result = METAL;
@@ -967,6 +976,7 @@ void ldc_task(void){
 		break;
 	case HANG_ERR:									//STATE 4.10
 		//State action
+		dbg_uart_send_string("ERR ",4);
 		end_LDC_SPI_transac();
 		//State transition
 		ldc_current_state = POLL_BRD0;				//T4.18
@@ -1803,7 +1813,9 @@ void chimney_task(void){
 		set_chimney_speed(0);
 		chimney_motor_enable = 0;
 		//State transistion
-		if(check_chim_paddle_pos()) {
+		if(sysState != SYS_ON){
+			chimneyCurrState = CHIM_IDLE_OFF;
+		} else if(check_chim_paddle_pos()) {
 			chimneyCurrState = CHIM_IDLE_ON;
 		} else {
 			chimneyCurrState = CHIM_TURN_PADDLE;
@@ -1825,7 +1837,9 @@ void chimney_task(void){
 		set_chimney_speed(0);
 		chimney_motor_enable = 0;
 		//State transistion
-		if(is_entry_door_open()) {
+		if(sysState != SYS_ON){
+			chimneyCurrState = CHIM_IDLE_OFF;
+		} else if(is_entry_door_open()) {
 			chimneyCurrState = CHIM_CHECK_POS;
 		} else if (sysState == SYS_OFF || sysState == SYS_MAINT) {
 			chimneyCurrState = CHIM_IDLE_OFF;
@@ -1838,7 +1852,9 @@ void chimney_task(void){
 		// Do nothing
 		//State transistion
 		temp = check_chim_next_pos();
-		if(temp){
+		if(sysState != SYS_ON){
+			chimneyCurrState = CHIM_IDLE_OFF;
+		} else if(temp){
 			chimneyCurrState = CHIM_STOP;
 		} else {
 			chimneyCurrState = CHIM_RUN2DOOR;
@@ -1862,7 +1878,9 @@ void chimney_task(void){
 		chimney_motor_enable = 0;
 		last_insert_pos = get_curr_chimney_pos();
 		//State transistion
-		if(!is_entry_door_open()){
+		if(sysState != SYS_ON){
+			chimneyCurrState = CHIM_IDLE_OFF;
+		} else if(!is_entry_door_open()){
 			chimneyCurrState = CHIM_INIT_BUF;
 		} else {
 			chimneyCurrState = CHIM_STOP;
@@ -2184,7 +2202,9 @@ void bin_task(){
 		set_bin_speed(0);
 		bin_motor_enable = 0;
 		//State transistions
-		if(check_bin_pos(bin_int)){
+		if(sysState != SYS_MAINT){
+			binCurrState = BIN_IDLE_OFF;
+		} else if(check_bin_pos(bin_int)){
 			binCurrState = BIN_WAIT_OPEN;
 		} else {
 			binCurrState = BIN_RUN_TO_DOOR;
@@ -2220,7 +2240,9 @@ void bin_task(){
 		set_bin_speed(0);
 		bin_motor_enable = 0;
 		//State transistions
-		if(!is_bin_door_open()){
+		if(sysState != SYS_MAINT){
+			binCurrState = BIN_IDLE_OFF;
+		} else if(!is_bin_door_open()){
 			binCurrState = BIN_INC_INT;
 		} else {
 			binCurrState = BIN_WAIT_USER;
