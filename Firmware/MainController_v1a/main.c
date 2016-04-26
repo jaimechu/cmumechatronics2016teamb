@@ -388,10 +388,10 @@ volatile uint8_t last_paddle = 0;
 
 /* Compact Functional task globals */
 #define COMPACT_SPEED 0x910 // Max Speed
-#define COMPACT_OPEN_H 0x2910
-#define COMPACT_OPEN_L 0x2310
-#define COMPACT_CLOSE_H 0xB5F0
-#define COMPACT_CLOSE_L 0xAC10
+#define COMPACT_OPEN_H 0x8B10
+#define COMPACT_OPEN_L 0x7310
+#define COMPACT_CLOSE_H 0xDFF0
+#define COMPACT_CLOSE_L 0xD910
 
 
 #define COMPACT_ILLEGAL 4
@@ -537,6 +537,7 @@ typedef enum  {STEP_IDLE_OFF,
 			   STEP_WAIT_REQUEST,
 			   STEP_MOVE,
 			   STEP_PAUSE,
+			   STEP_PAUSE_WAIT,
 	           STEP_RUN} step_state_t;
 volatile step_state_t stepCurrState = STEP_IDLE_OFF;
 
@@ -617,7 +618,7 @@ int main(void) {
         chimney_task();
         bin_task();
         //bin_acc_task();
-        bin_full_task();
+        //bin_full_task();
         led_task();
     }
 }
@@ -1266,8 +1267,10 @@ void mass_task(void){
 
 		// Send flags
 		bin_request = 1;
-		bin_ready = 0;
-		step_request = 1;
+		bin_ready = 0; // Clears bin_ready
+		step_request = 1; //
+		//TODO: Compute compact_ok
+
 
 		// Release buffers
 		if(curr_buf == 1){
@@ -2586,8 +2589,8 @@ void compact_task(){
 		//State transistions
 		if(sysState == SYS_OFF) {
 			compactCurrState = COMPACT_IDLE_OFF;
-		} else if(compact_ok){
-			compact_ok = 0;
+		} else if(step_close){
+			// step_close cleared in COMPACT_WAIT
 			compactCurrState = COMPACT_WAIT;
 		} else {
 			compactCurrState = COMPACT_AT_OPEN;
@@ -2598,10 +2601,17 @@ void compact_task(){
 		set_compact_speed(0);
 		compact_motor_enable = 0;
 		//State transistions
-		if(step_close) {
+		if(sysState == SYS_OFF) {
+			compactCurrState = COMPACT_IDLE_OFF;
+		} else if(compact_ok && step_close) {
+			compact_ok = 0;
 			step_close = 0;
 			reset_compact_timer();
 			compactCurrState = CLOSE_COMPACT;
+		} else if(!compact_ok && step_close) {
+			step_close = 0;
+			compact_done = 1; // Cleared by stepper task
+			compactCurrState = COMPACT_WAIT;
 		} else {
 			compactCurrState = COMPACT_WAIT;
 		}
@@ -2787,16 +2797,22 @@ void step_task(void){
 		stop_pwm();
 		stepper_disable();
 		step_close = 1;
+		stepCurrState = STEP_PAUSE_WAIT;
+		break;
+	case STEP_PAUSE_WAIT:
+		stop_pwm();
+		stepper_disable();
 		if(!(sysState == SYS_ON)) {
 			stepCurrState = STEP_IDLE_OFF;
 		} else if (step_close_dbug){ // For debug
 			step_close_dbug = 0;
 			stepCurrState = STEP_FIND_HOME;
 		} else if (compact_done && bin_ready){
-			stepCurrState = STEP_FIND_HOME;
 			compact_done = 0;
+			bin_ready = 0;	//Cleared here instead of mass task
+			stepCurrState = STEP_FIND_HOME;
 		} else {
-			stepCurrState = STEP_PAUSE;
+			stepCurrState = STEP_PAUSE_WAIT;
 		}
 		break;
 	default:
@@ -3264,8 +3280,9 @@ void debug_task(void){
 			bin_int_request = BIN_OTHER;
 		} else if ((strncmp(debug_cmd_buf,"c ok",4)==0) && (debug_cmd_buf_ptr == 4)) {
 			compact_ok = 1;
-
-
+		} else if ((strncmp(debug_cmd_buf,"bot",3)==0) && (debug_cmd_buf_ptr == 3)) {
+			step_request = 1;
+			bin_request = 1;
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
