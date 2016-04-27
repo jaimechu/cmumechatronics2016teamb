@@ -59,7 +59,7 @@ void LDC_SPI_setup(uint8_t idle, uint8_t edge){
 	UCB0CTL1 = UCSSEL_2  |	//Source from SMCLK
 			   UCSWRST;		//Keep USCI in reset
 
-	UCB0BR0 = 25;			//run at 1MHz
+	UCB0BR0 = 250;			//run at 1MHz
 
 	//Enable use of SPI pins MOSI, MISO, SCK
 	P3SEL |= BIT0 + BIT1 + BIT2;
@@ -73,8 +73,8 @@ void LDC_SPI_setup(uint8_t idle, uint8_t edge){
 	LDC1_SPI_CS_DEASSERT;
 
 	//CS on P7.0, set output high (disabled)
-	P7DIR |= BIT0;
-	LDC2_SPI_CS_DEASSERT;
+	//P7DIR |= BIT0;
+	//LDC2_SPI_CS_DEASSERT;
 
 	UCB0CTL1 &= ~UCSWRST;	//Release USCI from Reset
 	return;
@@ -100,9 +100,9 @@ void init_LDC_SPI_transac(uint8_t *tx_bytes, uint8_t num_bytes, uint8_t brd){
 	} else if(brd == 1){
 		LDC1_SPI_CS_ASSERT;
 		LDC_SPI_data.brd = 1;
-	} else if(brd == 2){
+	/*} else if(brd == 2){
 		LDC2_SPI_CS_ASSERT;
-		LDC_SPI_data.brd = 2;
+		LDC_SPI_data.brd = 2;*/
 	} else {
 		issue_warning(WARN_ILLEGAL_LDC_SPI_CS);
 	}

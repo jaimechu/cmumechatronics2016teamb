@@ -99,22 +99,22 @@ inline void set_hall_B_chnl(uint8_t mux_chnl);
 
 /** LDC task globals **/
 void ldc_task(void);
-typedef enum {IDLE,
-			  POLL_BRD0,
-			  WAIT_BRD0,
-			  POLL_BRD1,
-			  WAIT_BRD1,
-			  COMPUTE,
-			  HANG_ERR,
-			  REPOLL_BRD0
+typedef enum {LDC_IDLE,
+			  LDC_POLL_BRD0,
+			  LDC_WAIT_BRD0,
+			  LDC_POLL_BRD1,
+			  LDC_WAIT_BRD1,
+			  LDC_COMPUTE,
+			  LDC_HANG_ERR,
+			  LDC_WAIT_DBG,
+			  LDC_REPOLL_BRD0
 } ldc_state_t;
-volatile ldc_state_t ldc_current_state = IDLE;
+volatile ldc_state_t ldc_current_state = LDC_IDLE;
 #define LDC_WAIT_THRESH 60000//250
-#define LDC_WAIT_THRESH_MIN 150
 
-#define LDC_METAL_H 0x0630
-#define LDC_METAL_NO_COMPT 0x1000
-#define LDC_WOOD_H 0x100
+#define LDC_METAL_H 0x0630u
+#define LDC_METAL_NO_COMPT 0x1000u
+#define LDC_WOOD_H 0x100u
 
 #define NUM_LDC_SENSORS 2
 //TODO: Change buffer size
@@ -343,24 +343,25 @@ const uint8_t ui_buf[80] = "PL:000  GL:000  xxxxxxxXxxxxxxxXxxxxxxxXMT:000  OT:0
 /* END Buffer globals */
 
 /* Chimney Functional task globals */
-#define DEG0_POS_L 0x5A00
-#define DEG0_POS_H 0x5B00
-#define DEG90_POS_L 0x08F0
-#define DEG90_POS_H 0x09F0
-#define DEG180_POS_L 0xD200 // Paddle 3
-#define DEG180_POS_H 0xD300
-#define DEG270_POS_L 0x8230 // Paddle 4
-#define DEG270_POS_H 0x8330
-#define FULL_ROT_LOW_THRESH 0x0400
-#define FULL_ROT_HIGH_THRESH 0x0600
-#define CHIM_SPEED 0x439
+#define DEG0_POS_L 0x4A60
+#define DEG0_POS_H 0x4B60
+#define DEG90_POS_L 0x0CF0u
+#define DEG90_POS_H 0x0DA0u
+#define DEG180_POS_L 0xC800u // Paddle 3
+#define DEG180_POS_H 0xC900u
+#define DEG270_POS_L 0x88A0u // Paddle 4
+#define DEG270_POS_H 0x89A0u
 
-#define LDC_OFFSET_START 0x000
-#define LDC_OFFSET_END 0x3540
-#define MASS_OFFSET_START  0x825F// Add this to the door value to get the start of mass
-#define MASS_OFFSET_END 0x93CF
-#define OPT_OFFSET_START 0x1B70
-#define OPT_OFFSET_END 0x7E10
+#define FULL_ROT_LOW_THRESH 0x0400u
+#define FULL_ROT_HIGH_THRESH 0x0600u
+#define CHIM_SPEED 0x439u
+
+#define LDC_OFFSET_START 0x010u
+#define LDC_OFFSET_END 0x2E20u
+#define OPT_OFFSET_START  0x2E20u// Add this to the door value to get the start of mass
+#define OPT_OFFSET_END 0x6920u
+#define MASS_OFFSET_START 0x74E0u
+#define MASS_OFFSET_END 0x8CA0u
 
 
 uint16_t last_insert_pos = 0;
@@ -386,11 +387,11 @@ volatile uint8_t last_paddle = 0;
 /* END Chimney Functional task globals */
 
 /* Compact Functional task globals */
-#define COMPACT_SPEED 0x910 // Max Speed
-#define COMPACT_OPEN_H 0x8B10
-#define COMPACT_OPEN_L 0x7310
-#define COMPACT_CLOSE_H 0xDFF0
-#define COMPACT_CLOSE_L 0xD910
+#define COMPACT_SPEED 0x910u // Max Speed
+#define COMPACT_OPEN_H 0x8B10u
+#define COMPACT_OPEN_L 0x7310u
+#define COMPACT_CLOSE_H 0xDFF0u
+#define COMPACT_CLOSE_L 0xD910u
 
 
 #define COMPACT_ILLEGAL 4
@@ -439,34 +440,34 @@ volatile compact_state_t compactCurrState = COMPACT_IDLE_OFF;
 #define OTHER_DUMP_AVG OTHER_DUMP_H// (OTHER_DUMP_H + OTHER_DUMP_L)/2
 
 
-#define GLASS_DOOR_L 0x40A0
-#define GLASS_DOOR_H 0x4DA0
-#define PLASTIC_DOOR_L 0x8050
-#define PLASTIC_DOOR_H 0x82E0
-#define METAL_DOOR_L 0xCFD0 // 0xDD90
-#define METAL_DOOR_H 0xDBD0 // 0xE000
-#define OTHER_DOOR_L 0x0530
-#define OTHER_DOOR_H 0x0EF0
+#define GLASS_DOOR_L 0x47F0u
+#define GLASS_DOOR_H 0x49F0u
+#define PLASTIC_DOOR_L 0x8100u
+#define PLASTIC_DOOR_H 0x8300u
+#define METAL_DOOR_L 0xD830u // 0xDD90
+#define METAL_DOOR_H 0xDA30u // 0xE000
+#define OTHER_DOOR_L 0x0A80u
+#define OTHER_DOOR_H 0x0C80u
 
 #define GLASS_THRESH OTHER_DOOR_L
 #define PLASTIC_THRESH GLASS_DOOR_L
 #define METAL_THRESH PLASTIC_DOOR_L
 #define OTHER_THRESH METAL_DOOR_L
 
-#define GLASS_HALF_THRESH_L 0xB180
-#define GLASS_HALF_THRESH_H 0x29D0
-#define PLASTIC_HALF_THRESH_L 0xF360
-#define PLASTIC_HALF_THRESH_H 0x66F0
-#define METAL_HALF_THRESH_L 0x29D0//0x71B0
-#define METAL_HALF_THRESH_H 0xB180 //0xF890
-#define OTHER_HALF_THRESH_L 0x66F0 //0xE1B0 // Overflows
-#define OTHER_HALF_THRESH_H 0xF360//0x53B0
+#define GLASS_HALF_THRESH_L 0xB180u
+#define GLASS_HALF_THRESH_H 0x29D0u
+#define PLASTIC_HALF_THRESH_L 0xF360u
+#define PLASTIC_HALF_THRESH_H 0x66F0u
+#define METAL_HALF_THRESH_L 0x29D0u//0x71B0
+#define METAL_HALF_THRESH_H 0xB180u //0xF890
+#define OTHER_HALF_THRESH_L 0x66F0u //0xE1B0 // Overflows
+#define OTHER_HALF_THRESH_H 0xF360u//0x53B0
 
 
-#define BIN_SPEED_SLOW 0x439
-#define BIN_SPEED_FAST 0x900
+#define BIN_SPEED_SLOW 0x439u
+#define BIN_SPEED_FAST 0x900u
 //TODO: calibrate this val
-#define BIN_SPEED_THRESH 0x500
+#define BIN_SPEED_THRESH 0x500u
 
 
 typedef enum  {BIN_PLASTIC,
@@ -519,8 +520,8 @@ uint16_t get_target_distance(uint16_t pos, bin_t bin_requested);
 #define STEP_DIR_CLOSE 1
 
 #define STEP_CLOSE_POS 150
-#define STEP_TIME_FAST 0x700
-#define STEP_TIME_SLOW 0x1000
+#define STEP_TIME_FAST 0x700u
+#define STEP_TIME_SLOW 0x1000u
 
 
 uint8_t step_switch = 0;
@@ -763,7 +764,7 @@ inline void set_hall_B_chnl(uint8_t mux_chnl){
 
 /** LDC Task Functions **/
 uint8_t ldc_sensor_data_check_inside(){
-	uint16_t currChimPos = get_curr_chimney_pos();
+	volatile uint16_t currChimPos = get_curr_chimney_pos();
 	if(sensor_data1.obj_en && is_inside_interval(currChimPos, sensor_data1.LDC_start, sensor_data1.LDC_end)){
 		return 1;
 	} else if(sensor_data2.obj_en && is_inside_interval(currChimPos, sensor_data2.LDC_start, sensor_data2.LDC_end)){
@@ -773,21 +774,22 @@ uint8_t ldc_sensor_data_check_inside(){
 	}
 	return 0;
 }
-
+#define LDCstart_offset 0x200
+#define LDCend_offset 0x200
 uint8_t ldc_sensor_data_check_outside(uint8_t curr_buf){
 	volatile uint16_t currChimPos = get_curr_chimney_pos();
 	if(curr_buf == 1) {
-		if (!is_inside_interval(currChimPos, sensor_data1.LDC_start, sensor_data1.LDC_end)){
+		if (!is_inside_interval(currChimPos, sensor_data1.LDC_start-LDCstart_offset, sensor_data1.LDC_end+LDCend_offset)){
 			return 1;
 		}
 		return 0;
 	} else if (curr_buf == 2){
-		if(!is_inside_interval(currChimPos, sensor_data2.LDC_start, sensor_data2.LDC_end)){
+		if(!is_inside_interval(currChimPos, sensor_data2.LDC_start-LDCstart_offset, sensor_data2.LDC_end+LDCend_offset)){
 			return 1;
 		}
 		return 0;
 	} else if (curr_buf == 3) {
-		if(!is_inside_interval(currChimPos, sensor_data3.LDC_start, sensor_data3.LDC_end)){
+		if(!is_inside_interval(currChimPos, sensor_data3.LDC_start-LDCstart_offset, sensor_data3.LDC_end+LDCend_offset)){
 			return 1;
 		}
 		return 0;
@@ -797,7 +799,7 @@ uint8_t ldc_sensor_data_check_outside(uint8_t curr_buf){
 }
 
 void ldc_task(void){
-	static uint16_t wait_cntr = 0;
+	volatile static uint16_t wait_cntr = 0;
 	volatile static uint16_t base_ldc_val = 0;
 	volatile static uint16_t ldc_min_val = 0;
 	volatile static uint16_t ldc_max_val = 0;
@@ -805,35 +807,36 @@ void ldc_task(void){
 	uint16_t min_diff = 0;
 	uint16_t max_diff = 0;
 	uint8_t ldc_result = 0;
-	//uint8_t response_size = 0;
+	uint8_t response_size = 0;
 	uint8_t buf[8];
 	volatile static uint8_t curr_buf = 0;
+
+	volatile uint16_t currChimPos;
 	switch(ldc_current_state){
-	case IDLE:										//STATE 4.1
+	case LDC_IDLE:										//STATE 4.1
 		//State action:
 
 		ldc_stop = 0;
 		//State transition
 		if(ldc_run == 1) { 							// For debug
-			ldc_current_state = POLL_BRD0;
+			ldc_current_state = LDC_POLL_BRD0;
+			ldc_run = 0;
 		} else if (curr_buf = ldc_sensor_data_check_inside()) {
-			ldc_current_state = POLL_BRD0;
+			ldc_current_state = LDC_POLL_BRD0;
 		} else {
-			ldc_current_state = IDLE;
+			ldc_current_state = LDC_IDLE;
 		}
 		break;
-	case POLL_BRD0:									//STATE 4.2
+	case LDC_POLL_BRD0:									//STATE 4.2
 		//State action
-		dbg_uart_send_string("POB0",4);
-		ldc_run = 0;
 		ldc_read_reg_multiple_init(LDC_STATUS,buf,3,0);	//Send request for board 0 data
 		wait_cntr = 0;
 		//State transition
-		ldc_current_state = WAIT_BRD0;				//T4.3
+		ldc_current_state = LDC_WAIT_BRD0;				//T4.3
 		break;
-	case REPOLL_BRD0:								//STATE 4.9
+	case LDC_REPOLL_BRD0:								//STATE 4.9
 		//State action
-		dbg_uart_send_string("RPB0",4);
+
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
 		if(buf[1]&DRDY){
 			ldc_data_buf[1] = (buf[3]<<8)|buf[2];
@@ -844,26 +847,26 @@ void ldc_task(void){
 		ldc_read_reg_multiple_init(LDC_STATUS,buf,3,0);	//Send request for board 0 data
 		wait_cntr = 0;
 		//State transiton
-		ldc_current_state = WAIT_BRD0;				//T4.17
+		ldc_current_state = LDC_WAIT_BRD0;				//T4.17
 		break;
-	case WAIT_BRD0:									//STATE 4.3
+	case LDC_WAIT_BRD0:									//STATE 4.3
 		//State action
 		wait_cntr++;
-		dbg_uart_send_string("WAB0 ",5);
+
 		//State transition
 		//if(is_LDC_spi_rx_ready() && wait_cntr > LDC_WAIT_THRESH_MIN){					//T4.4
 		if(is_LDC_spi_rx_ready()){					//T4.4
-			ldc_current_state = POLL_BRD1;
+			ldc_current_state = LDC_POLL_BRD1;
 		} else if(wait_cntr > LDC_WAIT_THRESH){		//T4.13
-			ldc_current_state = HANG_ERR;
+			ldc_current_state = LDC_HANG_ERR;
 			issue_warning(WARN_LDC_SPI_HANG0);
 		} else {									//T4.10
-			ldc_current_state = WAIT_BRD0;
+			ldc_current_state = LDC_WAIT_BRD0;
 		}
 		break;
-	case POLL_BRD1:									//STATE 4.4
+	case LDC_POLL_BRD1:									//STATE 4.4
 		//State action
-		dbg_uart_send_string("POB1",4);
+
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 0 data
 		if(buf[1]&DRDY){
 			ldc_data_buf[0] = (buf[3]<<8)|buf[2];
@@ -887,35 +890,29 @@ void ldc_task(void){
 		ldc_read_reg_multiple_init(LDC_STATUS,buf,3,1); //Send request for board 1 data
 		wait_cntr = 0;
 		//State transition
-		ldc_current_state = WAIT_BRD1;				//T4.5
+		ldc_current_state = LDC_WAIT_BRD1;				//T4.5
 
 		break;
-	case WAIT_BRD1:									//STATE 4.5
+	case LDC_WAIT_BRD1:									//STATE 4.5
 		//State action
-		dbg_uart_send_string("WAB1 ",5);
 		wait_cntr++;
 		//State transition
-		//if(is_LDC_spi_rx_ready()  && wait_cntr > LDC_WAIT_THRESH_MIN){					//T4.6
-
 
 		if(ldc_stop && is_LDC_spi_rx_ready()){		//T4.8  (FOR DEBUG)
-			ldc_current_state = COMPUTE;
-		} else if (ldc_sensor_data_check_outside(curr_buf)  && is_LDC_spi_rx_ready()) {
-			ldc_current_state = COMPUTE;
-
+			ldc_current_state = LDC_COMPUTE;
+		} else if(ldc_sensor_data_check_outside(curr_buf) && is_LDC_spi_rx_ready()) {
+			ldc_current_state = LDC_COMPUTE;
 		} else if(!ldc_stop && is_LDC_spi_rx_ready()){//T4.16
-			ldc_current_state = REPOLL_BRD0;
-
+			ldc_current_state = LDC_REPOLL_BRD0;
 		} else if(wait_cntr > LDC_WAIT_THRESH){		//T4.15
-			ldc_current_state = HANG_ERR;
+			ldc_current_state = LDC_HANG_ERR;
 			issue_warning(WARN_LDC_SPI_HANG1);
 		} else {									//T4.12
-			ldc_current_state = WAIT_BRD1;
+			ldc_current_state = LDC_WAIT_BRD1;
 		}
 		break;
-	case COMPUTE:									//STATE 4.8
+	case LDC_COMPUTE:									//STATE 4.8
 		//State action
-		dbg_uart_send_string("COMP",4);
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
 		first_run = 1; 								//Reset first run value for next run
 		if(buf[1]&DRDY){
@@ -932,8 +929,8 @@ void ldc_task(void){
 		min_diff = base_ldc_val - ldc_min_val;
 #ifdef RAW_DATA_PRINT
 
-		dbg_uart_send_byte('l');
-	/*	dbg_uart_send_byte(9);//TAB
+		dbg_uart_send_byte('L');
+		dbg_uart_send_byte(9);//TAB
 		hex2ascii_int(ldc_max_val, &buf[0], &buf[1], &buf[2], &buf[3]);	//LDC_MAX_VAL
 		buf[4] = 9;//TAB
 		response_size = 5;
@@ -947,7 +944,7 @@ void ldc_task(void){
 		dbg_uart_send_string(buf,response_size);
 		dbg_uart_send_byte(10);
 		dbg_uart_send_byte(13);
-		*/
+
 #endif
 		if((max_diff > min_diff) && (min_diff > LDC_METAL_H)){
 			ldc_result = METAL;
@@ -968,22 +965,23 @@ void ldc_task(void){
 		} else if (curr_buf == 3){
 			sensor_data3.LDC_result = ldc_result;
 		} else {
-			issue_warning(WARN_MASS_TASK_STOP_ILLEGAL_BUF2);
+			issue_warning(WARN_LDC_TASK_STOP_ILLEGAL_BUF2);
 		}
 
 		//State transition
-		ldc_current_state = IDLE;					//T4.9
+		ldc_current_state = LDC_IDLE;					//T4.9
+
 		break;
-	case HANG_ERR:									//STATE 4.10
+	case LDC_HANG_ERR:									//STATE 4.10
 		//State action
 		dbg_uart_send_string("ERR ",4);
 		end_LDC_SPI_transac();
 		//State transition
-		ldc_current_state = POLL_BRD0;				//T4.18
+		ldc_current_state = LDC_POLL_BRD0;				//T4.18
 		break;
 	default:
 		issue_warning(WARN_ILLEGAL_LDC_SM_STATE);
-		ldc_current_state = IDLE;
+		ldc_current_state = LDC_IDLE;
 		break;
 	}
 }
@@ -1318,20 +1316,22 @@ uint8_t mass_sensor_data_check_inside(){
 	return 0;
 }
 
+#define MASSstart_offset 0x200
+#define MASSend_offset 0x0
 uint8_t mass_sensor_data_check_outside(uint8_t curr_buf){
 	uint16_t currChimPos = get_curr_chimney_pos();
 	if(curr_buf == 1) {
-		if (!is_inside_interval(currChimPos, sensor_data1.mass_start, sensor_data1.mass_end)){
+		if (!is_inside_interval(currChimPos, sensor_data1.mass_start-MASSstart_offset, sensor_data1.mass_end+MASSend_offset)){
 			return 1;
 		}
 		return 0;
 	} else if (curr_buf == 2){
-		if(!is_inside_interval(currChimPos, sensor_data2.mass_start, sensor_data2.mass_end)){
+		if(!is_inside_interval(currChimPos, sensor_data2.mass_start-MASSstart_offset, sensor_data2.mass_end+MASSend_offset)){
 			return 1;
 		}
 		return 0;
 	} else if (curr_buf == 3) {
-		if(!is_inside_interval(currChimPos, sensor_data3.mass_start, sensor_data3.mass_end)){
+		if(!is_inside_interval(currChimPos, sensor_data3.mass_start-MASSstart_offset, sensor_data3.mass_end+MASSend_offset)){
 			return 1;
 		}
 		return 0;
@@ -1492,20 +1492,22 @@ uint8_t opt_sensor_data_check_inside(){
 	return 0;
 }
 
+#define OPTstart_offset 0x200
+#define OPTend_offset 0x200
 uint8_t opt_sensor_data_check_outside(uint8_t curr_buf){
 	uint16_t currChimPos = get_curr_chimney_pos();
 	if(curr_buf == 1) {
-		if (!is_inside_interval(currChimPos, sensor_data1.opt_start, sensor_data1.opt_end)){
+		if (!is_inside_interval(currChimPos, sensor_data1.opt_start-OPTstart_offset, sensor_data1.opt_end+OPTend_offset)){
 			return 1;
 		}
 		return 0;
 	} else if (curr_buf == 2){
-		if(!is_inside_interval(currChimPos, sensor_data2.opt_start, sensor_data2.opt_end)){
+		if(!is_inside_interval(currChimPos, sensor_data2.opt_start-OPTstart_offset, sensor_data2.opt_end+OPTend_offset)){
 			return 1;
 		}
 		return 0;
 	} else if (curr_buf == 3) {
-		if(!is_inside_interval(currChimPos, sensor_data3.opt_start, sensor_data3.opt_end)){
+		if(!is_inside_interval(currChimPos, sensor_data3.opt_start-OPTstart_offset, sensor_data3.opt_end+OPTend_offset)){
 			return 1;
 		}
 		return 0;
