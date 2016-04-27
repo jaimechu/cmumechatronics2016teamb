@@ -111,10 +111,12 @@ typedef enum {LDC_IDLE,
 } ldc_state_t;
 volatile ldc_state_t ldc_current_state = LDC_IDLE;
 #define LDC_WAIT_THRESH 60000//250
-
+/*
 #define LDC_METAL_H 0x0630u
 #define LDC_METAL_NO_COMPT 0x1000u
 #define LDC_WOOD_H 0x100u
+*/
+#define CT_LDC_METAL_DIFF 350
 
 #define NUM_LDC_SENSORS 2
 //TODO: Change buffer size
@@ -162,6 +164,9 @@ uint16_t mass_data_buf[NUM_MASS_SENSORS][MASS_BUF_SIZE];
 uint16_t mass_buf_ptr = 0;
 uint16_t mass_hist_buf[32] = {0};
 uint16_t hist_delta_bin = 0;
+
+#define CT_MASS_MAX 7
+
 /** END Mass task globals **/
 
 /** Optical task globals **/
@@ -181,6 +186,8 @@ uint8_t opt_end = 0;
 #define OPT_BUF_SIZE 100
 #define OPT_WAIT_CNTR 5000
 #define OPT_CROSS_THRESH 1000
+
+#define CT_OPT_MAX_TIME 150
 
 //#define OPTDUMP
 #ifdef OPTDUMP
@@ -388,11 +395,11 @@ volatile uint8_t last_paddle = 0;
 
 /* Compact Functional task globals */
 #define COMPACT_SPEED 0x910u // Max Speed
-#define COMPACT_OPEN_H 0x8B10u
-#define COMPACT_OPEN_L 0x7310u
-#define COMPACT_CLOSE_H 0xDFF0u
-#define COMPACT_CLOSE_L 0xD910u
+#define COMPACT_OPEN_H 0x3C60u
+#define COMPACT_OPEN_L 0x2800u
 
+#define COMPACT_CLOSE_H 0xBF80u
+#define COMPACT_CLOSE_L 0xB380u
 
 #define COMPACT_ILLEGAL 4
 #define COMPACT_OPEN  1
@@ -440,20 +447,20 @@ volatile compact_state_t compactCurrState = COMPACT_IDLE_OFF;
 #define OTHER_DUMP_AVG OTHER_DUMP_H// (OTHER_DUMP_H + OTHER_DUMP_L)/2
 
 
-#define GLASS_DOOR_L 0x47F0u
-#define GLASS_DOOR_H 0x49F0u
-#define PLASTIC_DOOR_L 0x8100u
-#define PLASTIC_DOOR_H 0x8300u
-#define METAL_DOOR_L 0xD830u // 0xDD90
-#define METAL_DOOR_H 0xDA30u // 0xE000
-#define OTHER_DOOR_L 0x0A80u
-#define OTHER_DOOR_H 0x0C80u
+#define GLASS_DOOR_L 0x40F0u
+#define GLASS_DOOR_H 0x42F0u
+#define PLASTIC_DOOR_L 0x83B0u
+#define PLASTIC_DOOR_H 0x85B0u
+#define METAL_DOOR_L 0xDE20u // 0xDD90
+#define METAL_DOOR_H 0xE020u // 0xE000
+#define OTHER_DOOR_L 0x0B80u
+#define OTHER_DOOR_H 0x0D80u
 
 #define GLASS_THRESH OTHER_DOOR_L
 #define PLASTIC_THRESH GLASS_DOOR_L
 #define METAL_THRESH PLASTIC_DOOR_L
 #define OTHER_THRESH METAL_DOOR_L
-
+/*
 #define GLASS_HALF_THRESH_L 0xB180u
 #define GLASS_HALF_THRESH_H 0x29D0u
 #define PLASTIC_HALF_THRESH_L 0xF360u
@@ -462,7 +469,7 @@ volatile compact_state_t compactCurrState = COMPACT_IDLE_OFF;
 #define METAL_HALF_THRESH_H 0xB180u //0xF890
 #define OTHER_HALF_THRESH_L 0x66F0u //0xE1B0 // Overflows
 #define OTHER_HALF_THRESH_H 0xF360u//0x53B0
-
+*/
 
 #define BIN_SPEED_SLOW 0x439u
 #define BIN_SPEED_FAST 0x900u
@@ -798,12 +805,14 @@ uint8_t ldc_sensor_data_check_outside(uint8_t curr_buf){
 	return 0;
 }
 
+//#define LDC_RAW_DATA_PRINT
 void ldc_task(void){
 	volatile static uint16_t wait_cntr = 0;
 	volatile static uint16_t base_ldc_val = 0;
 	volatile static uint16_t ldc_min_val = 0;
 	volatile static uint16_t ldc_max_val = 0;
 	volatile static uint16_t first_run = 1;
+	volatile static uint8_t ldc_fail = 0;
 	uint16_t min_diff = 0;
 	uint16_t max_diff = 0;
 	uint8_t ldc_result = 0;
@@ -815,7 +824,7 @@ void ldc_task(void){
 	switch(ldc_current_state){
 	case LDC_IDLE:										//STATE 4.1
 		//State action:
-
+		ldc_fail = 0;
 		ldc_stop = 0;
 		//State transition
 		if(ldc_run == 1) { 							// For debug
@@ -840,13 +849,14 @@ void ldc_task(void){
 		ldc_read_reg_multiple_get_data(buf);		//Get Board 1 data
 		if(buf[1]&DRDY){
 			ldc_data_buf[1] = (buf[3]<<8)|buf[2];
-#ifdef RAW_DATA_PRINT
+#ifdef LDC_RAW_DATA_PRINT
 			hex2ascii_int(ldc_data_buf[1], &buf[0], &buf[1], &buf[2], &buf[3]);	//LDC_MAX_VAL
 			buf[4] = 10;
 			buf[5] = 13;
 			response_size = 6;
 			dbg_uart_send_string(buf,response_size);
 #endif
+			if((ldc_data_buf[1] == 0) || (ldc_data_buf[1] == 0xFFFF)) ldc_fail = 1;
 		}
 		if(buf[1]&OSC_DEAD){
 			issue_warning(WARN_LDC2_OSC_DEAD);
@@ -891,12 +901,13 @@ void ldc_task(void){
 					ldc_min_val = ldc_data_buf[0];
 				}
 			}
-#ifdef RAW_DATA_PRINT
+#ifdef LDC_RAW_DATA_PRINT
 			hex2ascii_int(ldc_data_buf[0], &buf[0], &buf[1], &buf[2], &buf[3]);	//LDC_MAX_VAL
 			buf[4] = 9;
 			response_size = 5;
 			dbg_uart_send_string(buf,response_size);
 #endif
+			if((ldc_data_buf[0] == 0) || (ldc_data_buf[0] == 0xFFFF)) ldc_fail = 1;
 		}
 		if(buf[1]&OSC_DEAD){
 			issue_warning(WARN_LDC0_OSC_DEAD);
@@ -960,12 +971,10 @@ void ldc_task(void){
 		dbg_uart_send_byte(13);
 
 #endif
-		if((max_diff > min_diff) && (min_diff > LDC_METAL_H)){
+		if(ldc_fail){
+			ldc_result = NOT_METAL;
+		} else	if(min_diff > CT_LDC_METAL_DIFF){
 			ldc_result = METAL;
-			/*
-		} else if ((min_diff < max_diff) && (min_diff < LDC_WOOD_H)){
-			ldc_result = OTHER;
-			*/
 		} else {
 			ldc_result = NOT_METAL;
 		}
@@ -1229,7 +1238,7 @@ void mass_task(void){
 		if(hist_delta_bin == 0){
 			//dbg_uart_send_string("Other",5);
 			mass_result = OTHER;
-		} else if(hist_delta_bin >= 16) {
+		} else if(hist_delta_bin >= CT_MASS_MAX) {
 			mass_result = HEAVY;
 			//dbg_uart_send_string("Glass/Heavy Other",17);
 		} else{
@@ -1249,6 +1258,94 @@ void mass_task(void){
 		}
 
 		//TODO: Final computation of final_result
+
+
+
+
+		if(curr_buf == 1){
+			if(sensor_data1.LDC_result == METAL){
+				dbg_uart_send_string("Metal",5);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.metal++;
+				bin_int_request = BIN_METAL;
+				compact_ok =1;
+			} else if((sensor_data1.mass_result == HEAVY) && (sensor_data1.opt_result == TRANSPARENT)){ //Assumes NOT_METAL
+				dbg_uart_send_string("Glass",5);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.glass++;
+				bin_int_request = BIN_GLASS;
+			} else if ((sensor_data1.mass_result == LIGHT) && (sensor_data1.opt_result == OPAQUE)){
+				dbg_uart_send_string("Plastic",7);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.plastic++;
+				bin_int_request = BIN_PLASTIC;
+			} else {
+				dbg_uart_send_string("Other",5);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.other++;
+				bin_int_request = BIN_OTHER;
+			}
+		} else if(curr_buf == 2){
+			if(sensor_data2.LDC_result == METAL){
+				dbg_uart_send_string("Metal",5);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.metal++;
+				bin_int_request = BIN_METAL;
+			} else if((sensor_data2.mass_result == HEAVY) && (sensor_data2.opt_result == TRANSPARENT)){ //Assumes NOT_METAL
+				dbg_uart_send_string("Glass",5);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.glass++;
+				bin_int_request = BIN_GLASS;
+			} else if ((sensor_data2.mass_result == LIGHT) && (sensor_data2.opt_result == OPAQUE)){
+				dbg_uart_send_string("Plastic",7);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.plastic++;
+				bin_int_request = BIN_PLASTIC;
+			} else {
+				dbg_uart_send_string("Other",5);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.other++;
+				bin_int_request = BIN_OTHER;
+			}
+		} else if (curr_buf == 3){
+			if(sensor_data3.LDC_result == METAL){
+				dbg_uart_send_string("Metal",5);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.metal++;
+				bin_int_request = BIN_METAL;
+			} else if((sensor_data3.mass_result == HEAVY) && (sensor_data3.opt_result == TRANSPARENT)){ //Assumes NOT_METAL
+				dbg_uart_send_string("Glass",5);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.glass++;
+				bin_int_request = BIN_GLASS;
+			} else if ((sensor_data3.mass_result == LIGHT) && (sensor_data3.opt_result == OPAQUE)){
+				dbg_uart_send_string("Plastic",7);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.plastic++;
+				bin_int_request = BIN_PLASTIC;
+			} else {
+				dbg_uart_send_string("Other",5);
+				dbg_uart_send_byte(13);		//CR
+				dbg_uart_send_byte(10);		//Line feed
+				total_count.other++;
+				bin_int_request = BIN_OTHER;
+			}
+		} else {
+			issue_warning(WARN_MASS_TASK_STOP_ILLEGAL_BUF2);
+		}
+
+		/*
 		if(ldc_final_val < LDC_METAL_H) {
 			dbg_uart_send_string("Metal",5);
 			dbg_uart_send_byte(13);		//CR
@@ -1286,10 +1383,11 @@ void mass_task(void){
 			total_count.other++;
 			bin_int_request = BIN_OTHER;
 		}
+		*/
 
 		// Send flags
 		bin_request = 1;
-		bin_ready = 0; // Clears bin_ready
+		//bin_ready = 0; // Clears bin_ready
 		step_request = 1; //
 		//TODO: Compute compact_ok
 
@@ -1452,7 +1550,7 @@ void opt_task(void){
 		if(opt_max_time == 0){
 			//dbg_uart_send_string("Other",5);
 			opt_result = OTHER;
-		} else if(opt_max_time < 20) {
+		} else if(opt_max_time < CT_OPT_MAX_TIME){
 			//dbg_uart_send_string("Plastic/Glass",13);
 			opt_result = TRANSPARENT;
 		} else{
@@ -2537,7 +2635,7 @@ uint8_t check_compact_pos(void){
 		ret_val = COMPACT_OPEN;
 	} else if (currCompactPos < COMPACT_CLOSE_H && currCompactPos >= COMPACT_CLOSE_L) {
 		ret_val = COMPACT_CLOSE;
-	} else if (currCompactPos < COMPACT_OPEN_H || currCompactPos >= COMPACT_CLOSE_L) {
+	} else if (currCompactPos > COMPACT_OPEN_H && currCompactPos <= COMPACT_CLOSE_L) {
 		ret_val = COMPACT_NOT_ILLEGAL;
 	} else {
 		ret_val = COMPACT_ILLEGAL;
