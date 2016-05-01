@@ -98,6 +98,8 @@ inline void set_hall_B_chnl(uint8_t mux_chnl);
 /** END ADC task globals **/
 
 /** LDC task globals **/
+//#define NO_LDC
+
 void ldc_task(void);
 typedef enum {LDC_IDLE,
 			  LDC_POLL_BRD0,
@@ -116,7 +118,7 @@ volatile ldc_state_t ldc_current_state = LDC_IDLE;
 #define LDC_METAL_NO_COMPT 0x1000u
 #define LDC_WOOD_H 0x100u
 */
-#define CT_LDC_METAL_DIFF 350
+#define CT_LDC_METAL_DIFF 1000
 
 #define NUM_LDC_SENSORS 2
 //TODO: Change buffer size
@@ -187,7 +189,8 @@ uint8_t opt_end = 0;
 #define OPT_WAIT_CNTR 5000
 #define OPT_CROSS_THRESH 1000
 
-#define CT_OPT_MAX_TIME 150
+#define CT_OPT_MAX_TIME 0xD0
+#define CT_OPT_LOW_VAL 0xD0
 
 //#define OPTDUMP
 #ifdef OPTDUMP
@@ -368,7 +371,7 @@ const uint8_t ui_buf[80] = "PL:000  GL:000  xxxxxxxXxxxxxxxXxxxxxxxXMT:000  OT:0
 #define OPT_OFFSET_START  0x2E20u// Add this to the door value to get the start of mass
 #define OPT_OFFSET_END 0x6920u
 #define MASS_OFFSET_START 0x74E0u
-#define MASS_OFFSET_END 0x8CA0u
+#define MASS_OFFSET_END 0x90A0u
 
 
 uint16_t last_insert_pos = 0;
@@ -394,12 +397,14 @@ volatile uint8_t last_paddle = 0;
 /* END Chimney Functional task globals */
 
 /* Compact Functional task globals */
-#define COMPACT_SPEED 0x910u // Max Speed
-#define COMPACT_OPEN_H 0x3C60u
-#define COMPACT_OPEN_L 0x2800u
+//#define NO_COMPACT
 
-#define COMPACT_CLOSE_H 0xBF80u
-#define COMPACT_CLOSE_L 0xB380u
+#define COMPACT_SPEED 0x910u // Max Speed
+#define COMPACT_OPEN_H 0x4C00u
+#define COMPACT_OPEN_L 0x3800u //0x4200u
+
+#define COMPACT_CLOSE_H 0xED00u		//0xE500u
+#define COMPACT_CLOSE_L 0xE800u		//0xE000u
 
 #define COMPACT_ILLEGAL 4
 #define COMPACT_OPEN  1
@@ -447,12 +452,12 @@ volatile compact_state_t compactCurrState = COMPACT_IDLE_OFF;
 #define OTHER_DUMP_AVG OTHER_DUMP_H// (OTHER_DUMP_H + OTHER_DUMP_L)/2
 
 
-#define GLASS_DOOR_L 0x40F0u
-#define GLASS_DOOR_H 0x42F0u
-#define PLASTIC_DOOR_L 0x83B0u
-#define PLASTIC_DOOR_H 0x85B0u
-#define METAL_DOOR_L 0xDE20u // 0xDD90
-#define METAL_DOOR_H 0xE020u // 0xE000
+#define GLASS_DOOR_L 0x4620u
+#define GLASS_DOOR_H 0x4820u
+#define PLASTIC_DOOR_L 0x7ED0u
+#define PLASTIC_DOOR_H 0x80D0u
+#define METAL_DOOR_L 0xDBB0u
+#define METAL_DOOR_H 0xDDB0u
 #define OTHER_DOOR_L 0x0B80u
 #define OTHER_DOOR_H 0x0D80u
 
@@ -603,11 +608,15 @@ int main(void) {
 	stepper_setup();
 	compact_setup();
 	bin_full_setup();
+#ifndef NO_LDC
 	LDC_SPI_setup(0,1); //LDC
+#endif
     // Enable Interrupts
     __bis_SR_register(GIE);
+#ifndef NO_LDC
     ldc_setup(0); 		//LDC
     ldc_setup(1); 		//LDC
+#endif
     motor_enable_setup();
     led_setup();
     while(1)
@@ -615,16 +624,21 @@ int main(void) {
         sys_task();
     	debug_task();
         adc_task();
+#ifndef NO_LDC
         ldc_task();
+#endif
         mass_task();
         opt_task();
         i2c_task();
         motor_spi_task();
+#ifndef NO_COMPACT
         compact_task();
+#else
+        compact_done = 1;
+#endif
         step_task();
         chimney_task();
         bin_task();
-        //bin_acc_task();
         //bin_full_task();
         led_task();
     }
@@ -815,6 +829,7 @@ void ldc_task(void){
 	volatile static uint8_t ldc_fail = 0;
 	uint16_t min_diff = 0;
 	uint16_t max_diff = 0;
+	uint16_t max_min_diff = 0;
 	uint8_t ldc_result = 0;
 	uint8_t response_size = 0;
 	uint8_t buf[8];
@@ -952,6 +967,7 @@ void ldc_task(void){
 		//Update buffer
 		max_diff = ldc_max_val - base_ldc_val;
 		min_diff = base_ldc_val - ldc_min_val;
+		max_min_diff = ldc_max_val - ldc_min_val;
 #ifdef RAW_DATA_PRINT
 
 		dbg_uart_send_byte('L');
@@ -973,7 +989,7 @@ void ldc_task(void){
 #endif
 		if(ldc_fail){
 			ldc_result = NOT_METAL;
-		} else	if(min_diff > CT_LDC_METAL_DIFF){
+		} else	if(max_min_diff > CT_LDC_METAL_DIFF){
 			ldc_result = METAL;
 		} else {
 			ldc_result = NOT_METAL;
@@ -1106,7 +1122,8 @@ void ldc_setup(uint8_t brd){
 	//Watchdog frequency
 	ldc_write_reg(0x03,25, brd);//179
 	//Configuration
-	ldc_write_reg(0x04,BIT4|BIT2|BIT1|BIT0, brd);	//Amplitude=4V, Response time = 6144, 4kHz sampling rate - 0x17
+	//ldc_write_reg(0x04,BIT4|BIT2|BIT1|BIT0, brd);	//Amplitude=4V, Response time = 6144, 4kHz sampling rate - 0x17
+	ldc_write_reg(0x04,BIT4|BIT3|BIT2|BIT1|BIT0, brd);
 	//Clock configuration
 	ldc_write_reg(0x05,BIT1, brd);	//Enable crystal
 	//INTB configuration
@@ -1276,7 +1293,7 @@ void mass_task(void){
 				dbg_uart_send_byte(10);		//Line feed
 				total_count.glass++;
 				bin_int_request = BIN_GLASS;
-			} else if ((sensor_data1.mass_result == LIGHT) && (sensor_data1.opt_result == OPAQUE)){
+			} else if ((sensor_data1.mass_result == LIGHT) && (sensor_data1.opt_result == TRANSPARENT)){
 				dbg_uart_send_string("Plastic",7);
 				dbg_uart_send_byte(13);		//CR
 				dbg_uart_send_byte(10);		//Line feed
@@ -1302,7 +1319,7 @@ void mass_task(void){
 				dbg_uart_send_byte(10);		//Line feed
 				total_count.glass++;
 				bin_int_request = BIN_GLASS;
-			} else if ((sensor_data2.mass_result == LIGHT) && (sensor_data2.opt_result == OPAQUE)){
+			} else if ((sensor_data2.mass_result == LIGHT) && (sensor_data2.opt_result == TRANSPARENT)){
 				dbg_uart_send_string("Plastic",7);
 				dbg_uart_send_byte(13);		//CR
 				dbg_uart_send_byte(10);		//Line feed
@@ -1328,7 +1345,7 @@ void mass_task(void){
 				dbg_uart_send_byte(10);		//Line feed
 				total_count.glass++;
 				bin_int_request = BIN_GLASS;
-			} else if ((sensor_data3.mass_result == LIGHT) && (sensor_data3.opt_result == OPAQUE)){
+			} else if ((sensor_data3.mass_result == LIGHT) && (sensor_data3.opt_result == TRANSPARENT)){
 				dbg_uart_send_string("Plastic",7);
 				dbg_uart_send_byte(13);		//CR
 				dbg_uart_send_byte(10);		//Line feed
@@ -1528,10 +1545,10 @@ void opt_task(void){
 		break;
 	case OPT_COMPUTE:						//STATE 3.4
 #ifdef OPTVAL
-		opt_low_val = opt_data_low_buf[1];
-		opt_max_time = opt_data_time_buf[1];
+		opt_low_val = opt_data_low_buf[0];
+		opt_max_time = opt_data_time_buf[0];
 		//State action
-		for(i=2;i<NUM_OPT_SENSORS;i++){
+		for(i=1;i<NUM_OPT_SENSORS;i++){
 			if(opt_data_low_buf[i] < opt_low_val){
 				opt_low_val = opt_data_low_buf[i];
 			}
@@ -1550,7 +1567,7 @@ void opt_task(void){
 		if(opt_max_time == 0){
 			//dbg_uart_send_string("Other",5);
 			opt_result = OTHER;
-		} else if(opt_max_time < CT_OPT_MAX_TIME){
+		} else if(opt_low_val >= CT_OPT_LOW_VAL){
 			//dbg_uart_send_string("Plastic/Glass",13);
 			opt_result = TRANSPARENT;
 		} else{
@@ -1863,7 +1880,7 @@ void check_compact_resp(uint16_t resp){
 	if(resp & BIT1) issue_warning(WARN_OPEN_COMPACT_OL_ON);
 	if(resp & BIT2) issue_warning(WARN_OPEN_COMPACT_VS_UV);
 	if(resp & BIT3) issue_warning(WARN_OPEN_COMPACT_VDD_OV);
-	//if(resp & BIT4) issue_warning(WARN_OPEN_COMPACT_ILIM);
+	if(resp & BIT4) issue_warning(WARN_OPEN_COMPACT_ILIM);
 	if(resp & BIT5) issue_warning(WARN_OPEN_COMPACT_TWARN);
 	if(resp & BIT6) issue_warning(WARN_OPEN_COMPACT_TSD);
 	if(resp & BIT8) issue_warning(WARN_OPEN_COMPACT_OC_LS1);
