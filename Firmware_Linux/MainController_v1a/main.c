@@ -525,6 +525,7 @@ bin_t check_bin_nearest_pos(void);
 uint8_t check_bin_request_pos(bin_t bin_requested);
 uint8_t is_bin_door_open(void);
 uint16_t get_target_distance(uint16_t pos, bin_t bin_requested);
+uint8_t get_bin_motor_dir(bin_t bin_requested, bin_t bin_requested_old);
 /* END Bin Functional task globals */
 
 /* Stepper Functional task globals */
@@ -2262,7 +2263,90 @@ uint8_t check_bin_pos(bin_t bin_requested){
 	return ret_val;
 }
 
-uint8_t get_bin_motor_dir(bin_t bin_requested){
+uint8_t get_bin_motor_dir(bin_t bin_requested, bin_t bin_requested_old){
+	uint8_t bin_dir = MOT_CW;
+	switch(bin_requested_old){
+	case BIN_PLASTIC:
+		switch(bin_requested){
+		case BIN_PLASTIC:
+			break;
+		case BIN_METAL:
+			bin_dir = MOT_CCW;
+			break;
+		case BIN_GLASS:
+			bin_dir = MOT_CW;
+			break;
+		case BIN_OTHER:
+			bin_dir = MOT_CW;
+			break;
+		default:
+			issue_warning(WARN_ILLEGAL_BIN_REQUEST1);
+			break;
+		}
+		break;
+	case BIN_METAL:
+		switch(bin_requested){
+		case BIN_PLASTIC:
+			bin_dir = MOT_CW;
+			break;
+		case BIN_METAL:
+			break;
+		case BIN_GLASS:
+			bin_dir = MOT_CW;
+			break;
+		case BIN_OTHER:
+			bin_dir = MOT_CCW;
+			break;
+		default:
+			issue_warning(WARN_ILLEGAL_BIN_REQUEST2);
+			break;
+		}
+		break;
+	case BIN_GLASS:
+		switch(bin_requested){
+		case BIN_PLASTIC:
+			bin_dir = MOT_CCW;
+			break;
+		case BIN_METAL:
+			bin_dir = MOT_CW;
+			break;
+		case BIN_GLASS:
+			break;
+		case BIN_OTHER:
+			bin_dir = MOT_CW;
+			break;
+		default:
+			issue_warning(WARN_ILLEGAL_BIN_REQUEST3);
+			break;
+		}
+		break;
+	case BIN_OTHER:
+		switch(bin_requested){
+		case BIN_PLASTIC:
+			bin_dir = MOT_CW;
+			break;
+		case BIN_METAL:
+			bin_dir = MOT_CW;
+			break;
+		case BIN_GLASS:
+			bin_dir = MOT_CCW;
+			break;
+		case BIN_OTHER:
+			break;
+		default:
+			issue_warning(WARN_ILLEGAL_BIN_REQUEST4);
+			break;
+		}
+		break;
+	case BIN_NONE:
+		bin_dir = MOT_CW;
+		break;
+	default:
+		issue_warning(WARN_ILLEGAL_BIN_REQUEST_OLD);
+		break;
+	}
+	return bin_dir;
+
 	/*
 	volatile uint16_t currBinPos = get_curr_bin_pos();
 	uint8_t ret_val = 0;
@@ -2301,7 +2385,7 @@ uint8_t get_bin_motor_dir(bin_t bin_requested){
 	}
 	return ret_val;
 	*/
-	return MOT_CW;
+	//return MOT_CW;
 }
 
 
@@ -2434,7 +2518,7 @@ void bin_task(){
 	case BIN_RUN_TO_DUMP:
 		//State actions
 		set_bin_speed(BIN_SPEED_FAST);
-		set_bin_direction(get_bin_motor_dir(bin_int_request));
+		set_bin_direction(get_bin_motor_dir(bin_int_request, prev_bin_int_request));
 		bin_motor_enable = 1;
 		bin_run = 1;
 		start_bin_pos = get_curr_bin_pos();
@@ -2679,7 +2763,7 @@ void compact_setup(void){
 	UCSCTL5 |= DIVA_5;
 	TA2CTL = TASSEL_1 + ID_3 + MC_1; //SMCLK div 8 Up mode
 	TA2EX0 = TAIDEX_7; // Divide by 8
-	TA2CCR0 = 40000;// 12207;	//1 sec
+	TA2CCR0 = 24000;// 12207;	//1 sec
 	return;
 }
 
@@ -2776,7 +2860,8 @@ void compact_task(){
 		set_compact_speed(COMPACT_SPEED);
 		compact_motor_enable = 1;
 		//State transistions
-		if(currCompactArea == COMPACT_CLOSE){ //|| check_compact_timeout()){
+		//if(currCompactArea == COMPACT_CLOSE){ //|| check_compact_timeout()){
+		if(currCompactArea == COMPACT_CLOSE || check_compact_timeout()){
 			compactCurrState = COMPACT_AT_CLOSE;
 		} else if (currCompactArea == COMPACT_OPEN || currCompactArea == COMPACT_NOT_ILLEGAL) {
 			compactCurrState = CLOSE_COMPACT;
