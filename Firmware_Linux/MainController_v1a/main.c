@@ -475,7 +475,7 @@ volatile compact_state_t compactCurrState = COMPACT_IDLE_OFF;
 #define OTHER_HALF_THRESH_L 0x66F0u //0xE1B0 // Overflows
 #define OTHER_HALF_THRESH_H 0xF360u//0x53B0
 */
-
+//#define NO_BIN
 #define BIN_SPEED_SLOW 0x439u
 #define BIN_SPEED_FAST 0x900u
 //TODO: calibrate this val
@@ -538,6 +538,7 @@ uint8_t get_bin_motor_dir(bin_t bin_requested, bin_t bin_requested_old);
 #define STEP_TIME_FAST 0x700u
 #define STEP_TIME_SLOW 0x1000u
 
+#define CHIM_STEP_OFFSET 0x2000
 
 uint8_t step_switch = 0;
 volatile uint16_t step_position = 0;
@@ -552,6 +553,7 @@ typedef enum  {STEP_IDLE_OFF,
 			   STEP_WAIT_REQUEST,
 			   STEP_MOVE,
 			   STEP_PAUSE,
+			   STEP_DELAY,
 			   STEP_PAUSE_WAIT,
 	           STEP_RUN} step_state_t;
 volatile step_state_t stepCurrState = STEP_IDLE_OFF;
@@ -641,7 +643,11 @@ int main(void) {
 #endif
         step_task();
         chimney_task();
+#ifndef NO_BIN
         bin_task();
+#else
+        bin_ready = 1;
+#endif
         //bin_full_task();
         led_task();
     }
@@ -2978,8 +2984,11 @@ void stepper_disable(void){
 	return;
 }
 
+
 void step_task(void){
 	volatile uint8_t temp;
+	static volatile uint16_t chim_start_pos = 0;
+	volatile uint16_t currDelayPos = 0;
 	switch(stepCurrState){
 	case STEP_IDLE_OFF:
 		//State action
@@ -3044,6 +3053,7 @@ void step_task(void){
 		break;
 	case STEP_MOVE:
 		//State action
+		chim_start_pos = get_curr_chimney_pos();
 		stepper_enable(STEP_DIR_CLOSE);
 		start_pwm();
 		//State transition
@@ -3069,7 +3079,17 @@ void step_task(void){
 		stop_pwm();
 		stepper_disable();
 		step_close = 1;
-		stepCurrState = STEP_PAUSE_WAIT;
+		stepCurrState = STEP_DELAY;
+		break;
+	case STEP_DELAY:
+		//No state action
+		currDelayPos = get_curr_chimney_pos();
+		//State transition
+		if(is_inside_interval(currDelayPos, chim_start_pos, chim_start_pos+CHIM_STEP_OFFSET)){
+			stepCurrState = STEP_DELAY;
+		} else {
+			stepCurrState = STEP_PAUSE_WAIT;
+		}
 		break;
 	case STEP_PAUSE_WAIT:
 		stop_pwm();
