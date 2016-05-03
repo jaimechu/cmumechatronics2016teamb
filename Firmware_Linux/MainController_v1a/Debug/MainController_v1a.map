@@ -1,10 +1,10 @@
 ******************************************************************************
                   MSP430 Linker Unix v4.4.3                    
 ******************************************************************************
->> Linked Tue May  3 09:11:52 2016
+>> Linked Tue May  3 09:23:41 2016
 
 OUTPUT FILE NAME:   <MainController_v1a.out>
-ENTRY POINT SYMBOL: "_c_int00_noargs_noexit"  address: 0000c380
+ENTRY POINT SYMBOL: "_c_int00_noargs_noexit"  address: 0000c110
 
 
 MEMORY CONFIGURATION
@@ -20,7 +20,7 @@ MEMORY CONFIGURATION
   INFOA                 00001980   00000080  00000000  00000080  RWIX
   USBRAM                00001c00   00000800  00000000  00000800  RWIX
   RAM                   00002400   00001800  000008dc  00000f24  RWIX
-  FLASH                 00008000   00007f80  00004888  000036f8  RWIX
+  FLASH                 00008000   00007f80  000045fc  00003984  RWIX
   INT00                 0000ff80   00000002  00000000  00000002  RWIX
   INT01                 0000ff82   00000002  00000000  00000002  RWIX
   INT02                 0000ff84   00000002  00000000  00000002  RWIX
@@ -119,150 +119,146 @@ section   page    origin      length       input sections
                   00003b60    00000002     rts430x_lc_sd_eabi.lib : boot.obj (.stack)
                   00003b62    0000009e     --HOLE--
 
-.text      0    00008000    000045c4     
+.text      0    00008000    00004338     
                   00008000    00000f7a     main.obj (.text:debug_task)
-                  00008f7a    000004e8     main.obj (.text:mass_task)
-                  00009462    000003a8     main.obj (.text:ldc_task)
-                  0000980a    000002b8     main.obj (.text:chimney_task)
-                  00009ac2    00000260     main.obj (.text:bin_task)
-                  00009d22    0000021a     main.obj (.text:opt_task)
-                  00009f3c    00000206     main.obj (.text:i2c_task)
-                  0000a142    000001da     main.obj (.text:compact_task)
-                  0000a31c    000001a8     main.obj (.text:step_task)
-                  0000a4c4    0000013a     main.obj (.text:adc_task)
-                  0000a5fe    0000011c     main.obj (.text:ldc_setup)
-                  0000a71a    000000f0     main.obj (.text:motor_spi_task)
-                  0000a80a    000000ee     main.obj (.text:check_bin_request_pos_compensated)
-                  0000a8f8    000000e2     utils.obj (.text:error_dump)
-                  0000a9da    000000e2     main.obj (.text:reset_isr)
-                  0000aabc    000000e2     utils.obj (.text:warning_dump)
-                  0000ab9e    000000d6     rts430x_lc_sd_eabi.lib : copy_decompress_rle.obj (.text:__TI_decompress_rle_core)
-                  0000ac74    000000d2     main.obj (.text:_isr:ADC12_ISR)
-                  0000ad46    000000b8     utils.obj (.text:hex2ascii_int)
-                  0000adfe    000000b0     main.obj (.text:main)
-                  0000aeae    000000a8     main.obj (.text:check_bin_resp)
-                  0000af56    000000a8     main.obj (.text:check_chimney_resp)
-                  0000affe    000000a8     main.obj (.text:check_compact_resp)
-                  0000b0a6    000000a2     main.obj (.text:get_bin_motor_dir)
-                  0000b148    00000096     main.obj (.text:_isr:USCIA1_ISR)
-                  0000b1de    00000092     main.obj (.text:_isr:USCIB0_ISR)
-                  0000b270    00000092     main.obj (.text:ldc_sensor_data_check_outside)
-                  0000b302    0000008e     main.obj (.text:check_chim_next_pos)
-                  0000b390    00000084     main.obj (.text:opt_sensor_data_check_outside)
-                  0000b414    00000082     utils.obj (.text:ascii2hex_byte)
-                  0000b496    00000080     rts430x_lc_sd_eabi.lib : autoinit_wdt.obj (.text:_auto_init_hold_wdt)
-                  0000b516    00000080     main.obj (.text:check_bin_pos)
-                  0000b596    00000080     main.obj (.text:check_bin_request_pos)
-                  0000b616    00000078     main.obj (.text:_isr:USCIA0_ISR)
-                  0000b68e    00000078     main.obj (.text:mass_sensor_data_check_outside)
-                  0000b706    00000072     main.obj (.text:ldc_write_reg)
-                  0000b778    00000070     main.obj (.text:_isr:USCI_B1_ISR)
-                  0000b7e8    00000068     main.obj (.text:check_chim_paddle_pos)
-                  0000b850    00000066     main.obj (.text:ldc_sensor_data_check_inside)
-                  0000b8b6    00000064     main.obj (.text:check_chim_full_rot)
-                  0000b91a    00000062     main.obj (.text:mass_sensor_data_check_inside)
-                  0000b97c    00000062     main.obj (.text:opt_sensor_data_check_inside)
-                  0000b9de    0000005e     main.obj (.text:check_compact_pos)
-                  0000ba3c    0000005c     main.obj (.text:_isr:unmi_isr)
-                  0000ba98    0000005a     ldc_spi_uscib0.obj (.text:init_LDC_SPI_transac)
-                  0000baf2    00000058     motor_spi_uscia1.obj (.text:init_motor_SPI_transac)
-                  0000bb4a    00000056     utils.obj (.text:hex2ascii_byte)
-                  0000bba0    00000054     motor_spi_uscia1.obj (.text:MOTOR_SPI_setup)
-                  0000bbf4    00000050     motor.obj (.text:motor_pwm_setup)
-                  0000bc44    0000004e     clock_f5.obj (.text:SetVCoreUp)
-                  0000bc92    0000004e     main.obj (.text:check_bin_nearest_pos)
-                  0000bce0    0000004c     utils.obj (.text:dec2ascii_byte)
-                  0000bd2c    0000004c     main.obj (.text:motor_enable_setup)
-                  0000bd78    0000004c     clock_f5.obj (.text:setup_clock)
-                  0000bdc4    00000048     ldc_spi_uscib0.obj (.text:LDC_SPI_setup)
-                  0000be0c    00000044     dbg_uart_uscia0.obj (.text:dbg_uart_send_string)
-                  0000be50    00000040     rts430x_lc_sd_eabi.lib : cpy_util.obj (.text:__memcpy_far)
-                  0000be90    00000040     i2c_uscib1.obj (.text:i2c_uscib1_setup)
-                  0000bed0    0000003e     rts430x_lc_sd_eabi.lib : copy_zero_init.obj (.text:decompress:ZI:__TI_zero_init)
-                  0000bf0e    0000003e     i2c_uscib1.obj (.text:init_I2C_transac)
-                  0000bf4c    0000003c     utils.obj (.text:clear_warnings)
-                  0000bf88    0000003c     rts430x_lc_sd_eabi.lib : copy_decompress_none.obj (.text:decompress:none:__TI_decompress_none)
-                  0000bfc4    00000038     utils.obj (.text:clear_errors)
-                  0000bffc    00000038     utils.obj (.text:issue_warning)
-                  0000c034    0000002e     ldc_spi_uscib0.obj (.text:get_LDC_SPI_rx_data)
-                  0000c062    0000002e     utils.obj (.text:issue_error)
-                  0000c090    0000002c     main.obj (.text:_isr:TimerA0)
-                  0000c0bc    0000002c     main.obj (.text:adc_setup)
-                  0000c0e8    0000002c     dbg_uart_uscia0.obj (.text:dbg_uart_send_byte)
-                  0000c114    0000002c     rts430x_lc_sd_eabi.lib : div16s.obj (.text)
-                  0000c140    00000028     dbg_uart_uscia0.obj (.text:setup_dbg_uart)
-                  0000c168    00000026     main.obj (.text:led_task)
-                  0000c18e    00000024     main.obj (.text:stepper_setup)
-                  0000c1b2    00000024     utils.obj (.text:strncmp)
-                  0000c1d6    00000022     utils.obj (.text:P1_get)
-                  0000c1f8    00000022     utils.obj (.text:P2_get)
-                  0000c21a    00000022     utils.obj (.text:P3_get)
-                  0000c23c    00000022     utils.obj (.text:P4_get)
-                  0000c25e    00000022     utils.obj (.text:P5_get)
-                  0000c280    00000022     utils.obj (.text:P6_get)
-                  0000c2a2    00000022     utils.obj (.text:P7_get)
-                  0000c2c4    00000022     utils.obj (.text:P8_get)
-                  0000c2e6    00000020     motor_spi_uscia1.obj (.text:get_motor_SPI_rx_data)
-                  0000c306    00000020     main.obj (.text:is_inside_interval)
-                  0000c326    00000020     main.obj (.text:stepper_enable)
-                  0000c346    0000001e     main.obj (.text:sys_task)
-                  0000c364    0000001c     main.obj (.text:bin_full_setup)
-                  0000c380    0000001a     rts430x_lc_sd_eabi.lib : boot_special.obj (.text:_isr:_c_int00_noargs_noexit)
-                  0000c39a    0000001a     main.obj (.text:compact_setup)
-                  0000c3b4    0000001a     dbg_uart_uscia0.obj (.text:dbg_uart_get_byte)
-                  0000c3ce    00000016     main.obj (.text:led_setup)
-                  0000c3e4    00000016     rts430x_lc_sd_eabi.lib : div16u.obj (.text)
-                  0000c3fa    00000016                            : mult16_f5hw.obj (.text)
-                  0000c410    00000014                            : memset.obj (.text:memset)
-                  0000c424    00000014     motor.obj (.text:set_bin_direction)
-                  0000c438    00000014     motor.obj (.text:set_compact_direction)
-                  0000c44c    00000012     main.obj (.text:check_compact_timeout)
-                  0000c45e    00000012     i2c_uscib1.obj (.text:end_I2C_transac)
-                  0000c470    00000012     ldc_spi_uscib0.obj (.text:end_LDC_SPI_transac)
-                  0000c482    00000012     main.obj (.text:get_curr_bin_pos)
-                  0000c494    00000012     main.obj (.text:get_curr_chimney_pos)
-                  0000c4a6    00000012     main.obj (.text:get_curr_compact_pos)
-                  0000c4b8    00000010     motor.obj (.text:set_bin_speed)
-                  0000c4c8    00000010     motor.obj (.text:set_chimney_direction)
-                  0000c4d8    00000010     motor.obj (.text:set_chimney_speed)
-                  0000c4e8    00000010     motor.obj (.text:set_compact_speed)
-                  0000c4f8    0000000e     rts430x_lc_sd_eabi.lib : copy_decompress_rle.obj (.text:decompress:rle24:__TI_decompress_rle24)
-                  0000c506    0000000e     main.obj (.text:is_bin_door_open)
-                  0000c514    0000000e     dbg_uart_uscia0.obj (.text:is_dbg_uart_rx_data_ready)
-                  0000c522    0000000e     main.obj (.text:is_entry_door_open)
-                  0000c530    0000000e     main.obj (.text:is_step_switch_pressed)
-                  0000c53e    0000000c     main.obj (.text:_isr:TimerA1)
-                  0000c54a    0000000a     main.obj (.text:reset_compact_timer)
-                  0000c554    00000008     utils.obj (.text:led_P5_6_off)
-                  0000c55c    00000008     utils.obj (.text:led_P5_6_on)
-                  0000c564    00000008     utils.obj (.text:led_P7_7_off)
-                  0000c56c    00000008     utils.obj (.text:led_P7_7_on)
-                  0000c574    00000006     rts430x_lc_sd_eabi.lib : isr_trap.obj (.text:_isr:__TI_ISR_TRAP)
-                  0000c57a    00000006     dbg_uart_uscia0.obj (.text:disable_dbg_uart_txint)
-                  0000c580    00000006     dbg_uart_uscia0.obj (.text:enable_dbg_uart_txint)
-                  0000c586    00000006     i2c_uscib1.obj (.text:is_I2C_rx_ready)
-                  0000c58c    00000006     ldc_spi_uscib0.obj (.text:is_LDC_spi_rx_ready)
-                  0000c592    00000006     utils.obj (.text:is_error)
-                  0000c598    00000006     motor_spi_uscia1.obj (.text:is_motor_spi_rx_ready)
-                  0000c59e    00000006     utils.obj (.text:led_P1_0_off)
-                  0000c5a4    00000006     utils.obj (.text:led_P1_0_on)
-                  0000c5aa    00000006     utils.obj (.text:led_P2_2_off)
-                  0000c5b0    00000006     utils.obj (.text:led_P2_2_on)
-                  0000c5b6    00000006     main.obj (.text:stepper_disable)
-                  0000c5bc    00000004     rts430x_lc_sd_eabi.lib : pre_init.obj (.text:_system_pre_init)
-                  0000c5c0    00000004                            : exit.obj (.text:abort)
+                  00008f7a    000004e0     main.obj (.text:mass_task)
+                  0000945a    00000390     main.obj (.text:ldc_task)
+                  000097ea    000002b8     main.obj (.text:chimney_task)
+                  00009aa2    00000260     main.obj (.text:bin_task)
+                  00009d02    00000206     main.obj (.text:i2c_task)
+                  00009f08    00000202     main.obj (.text:opt_task)
+                  0000a10a    000001a8     main.obj (.text:step_task)
+                  0000a2b2    0000013a     main.obj (.text:adc_task)
+                  0000a3ec    0000011c     main.obj (.text:ldc_setup)
+                  0000a508    000000f0     main.obj (.text:motor_spi_task)
+                  0000a5f8    000000ee     main.obj (.text:check_bin_request_pos_compensated)
+                  0000a6e6    000000e2     utils.obj (.text:error_dump)
+                  0000a7c8    000000e2     main.obj (.text:reset_isr)
+                  0000a8aa    000000e2     utils.obj (.text:warning_dump)
+                  0000a98c    000000d6     rts430x_lc_sd_eabi.lib : copy_decompress_rle.obj (.text:__TI_decompress_rle_core)
+                  0000aa62    000000d2     main.obj (.text:_isr:ADC12_ISR)
+                  0000ab34    000000b8     utils.obj (.text:hex2ascii_int)
+                  0000abec    000000b0     main.obj (.text:main)
+                  0000ac9c    000000a8     main.obj (.text:check_bin_resp)
+                  0000ad44    000000a8     main.obj (.text:check_chimney_resp)
+                  0000adec    000000a8     main.obj (.text:check_compact_resp)
+                  0000ae94    000000a2     main.obj (.text:get_bin_motor_dir)
+                  0000af36    00000096     main.obj (.text:_isr:USCIA1_ISR)
+                  0000afcc    00000092     main.obj (.text:_isr:USCIB0_ISR)
+                  0000b05e    00000092     main.obj (.text:ldc_sensor_data_check_outside)
+                  0000b0f0    0000008e     main.obj (.text:check_chim_next_pos)
+                  0000b17e    00000084     main.obj (.text:opt_sensor_data_check_outside)
+                  0000b202    00000082     utils.obj (.text:ascii2hex_byte)
+                  0000b284    00000080     rts430x_lc_sd_eabi.lib : autoinit_wdt.obj (.text:_auto_init_hold_wdt)
+                  0000b304    00000080     main.obj (.text:check_bin_pos)
+                  0000b384    00000080     main.obj (.text:check_bin_request_pos)
+                  0000b404    00000078     main.obj (.text:_isr:USCIA0_ISR)
+                  0000b47c    00000078     main.obj (.text:mass_sensor_data_check_outside)
+                  0000b4f4    00000072     main.obj (.text:ldc_write_reg)
+                  0000b566    00000070     main.obj (.text:_isr:USCI_B1_ISR)
+                  0000b5d6    00000068     main.obj (.text:check_chim_paddle_pos)
+                  0000b63e    00000066     main.obj (.text:ldc_sensor_data_check_inside)
+                  0000b6a4    00000064     main.obj (.text:check_chim_full_rot)
+                  0000b708    00000062     main.obj (.text:mass_sensor_data_check_inside)
+                  0000b76a    00000062     main.obj (.text:opt_sensor_data_check_inside)
+                  0000b7cc    0000005c     main.obj (.text:_isr:unmi_isr)
+                  0000b828    0000005a     ldc_spi_uscib0.obj (.text:init_LDC_SPI_transac)
+                  0000b882    00000058     motor_spi_uscia1.obj (.text:init_motor_SPI_transac)
+                  0000b8da    00000056     utils.obj (.text:hex2ascii_byte)
+                  0000b930    00000054     motor_spi_uscia1.obj (.text:MOTOR_SPI_setup)
+                  0000b984    00000050     motor.obj (.text:motor_pwm_setup)
+                  0000b9d4    0000004e     clock_f5.obj (.text:SetVCoreUp)
+                  0000ba22    0000004e     main.obj (.text:check_bin_nearest_pos)
+                  0000ba70    0000004c     utils.obj (.text:dec2ascii_byte)
+                  0000babc    0000004c     main.obj (.text:motor_enable_setup)
+                  0000bb08    0000004c     clock_f5.obj (.text:setup_clock)
+                  0000bb54    00000048     ldc_spi_uscib0.obj (.text:LDC_SPI_setup)
+                  0000bb9c    00000044     dbg_uart_uscia0.obj (.text:dbg_uart_send_string)
+                  0000bbe0    00000040     rts430x_lc_sd_eabi.lib : cpy_util.obj (.text:__memcpy_far)
+                  0000bc20    00000040     i2c_uscib1.obj (.text:i2c_uscib1_setup)
+                  0000bc60    0000003e     rts430x_lc_sd_eabi.lib : copy_zero_init.obj (.text:decompress:ZI:__TI_zero_init)
+                  0000bc9e    0000003e     i2c_uscib1.obj (.text:init_I2C_transac)
+                  0000bcdc    0000003c     utils.obj (.text:clear_warnings)
+                  0000bd18    0000003c     rts430x_lc_sd_eabi.lib : copy_decompress_none.obj (.text:decompress:none:__TI_decompress_none)
+                  0000bd54    00000038     utils.obj (.text:clear_errors)
+                  0000bd8c    00000038     utils.obj (.text:issue_warning)
+                  0000bdc4    0000002e     ldc_spi_uscib0.obj (.text:get_LDC_SPI_rx_data)
+                  0000bdf2    0000002e     utils.obj (.text:issue_error)
+                  0000be20    0000002c     main.obj (.text:_isr:TimerA0)
+                  0000be4c    0000002c     main.obj (.text:adc_setup)
+                  0000be78    0000002c     dbg_uart_uscia0.obj (.text:dbg_uart_send_byte)
+                  0000bea4    0000002c     rts430x_lc_sd_eabi.lib : div16s.obj (.text)
+                  0000bed0    00000028     dbg_uart_uscia0.obj (.text:setup_dbg_uart)
+                  0000bef8    00000026     main.obj (.text:led_task)
+                  0000bf1e    00000024     main.obj (.text:stepper_setup)
+                  0000bf42    00000024     utils.obj (.text:strncmp)
+                  0000bf66    00000022     utils.obj (.text:P1_get)
+                  0000bf88    00000022     utils.obj (.text:P2_get)
+                  0000bfaa    00000022     utils.obj (.text:P3_get)
+                  0000bfcc    00000022     utils.obj (.text:P4_get)
+                  0000bfee    00000022     utils.obj (.text:P5_get)
+                  0000c010    00000022     utils.obj (.text:P6_get)
+                  0000c032    00000022     utils.obj (.text:P7_get)
+                  0000c054    00000022     utils.obj (.text:P8_get)
+                  0000c076    00000020     motor_spi_uscia1.obj (.text:get_motor_SPI_rx_data)
+                  0000c096    00000020     main.obj (.text:is_inside_interval)
+                  0000c0b6    00000020     main.obj (.text:stepper_enable)
+                  0000c0d6    0000001e     main.obj (.text:sys_task)
+                  0000c0f4    0000001c     main.obj (.text:bin_full_setup)
+                  0000c110    0000001a     rts430x_lc_sd_eabi.lib : boot_special.obj (.text:_isr:_c_int00_noargs_noexit)
+                  0000c12a    0000001a     main.obj (.text:compact_setup)
+                  0000c144    0000001a     dbg_uart_uscia0.obj (.text:dbg_uart_get_byte)
+                  0000c15e    00000016     main.obj (.text:led_setup)
+                  0000c174    00000016     rts430x_lc_sd_eabi.lib : div16u.obj (.text)
+                  0000c18a    00000016                            : mult16_f5hw.obj (.text)
+                  0000c1a0    00000014                            : memset.obj (.text:memset)
+                  0000c1b4    00000014     motor.obj (.text:set_bin_direction)
+                  0000c1c8    00000014     motor.obj (.text:set_compact_direction)
+                  0000c1dc    00000012     i2c_uscib1.obj (.text:end_I2C_transac)
+                  0000c1ee    00000012     ldc_spi_uscib0.obj (.text:end_LDC_SPI_transac)
+                  0000c200    00000012     main.obj (.text:get_curr_bin_pos)
+                  0000c212    00000012     main.obj (.text:get_curr_chimney_pos)
+                  0000c224    00000012     main.obj (.text:get_curr_compact_pos)
+                  0000c236    00000010     motor.obj (.text:set_bin_speed)
+                  0000c246    00000010     motor.obj (.text:set_chimney_direction)
+                  0000c256    00000010     motor.obj (.text:set_chimney_speed)
+                  0000c266    00000010     motor.obj (.text:set_compact_speed)
+                  0000c276    0000000e     rts430x_lc_sd_eabi.lib : copy_decompress_rle.obj (.text:decompress:rle24:__TI_decompress_rle24)
+                  0000c284    0000000e     main.obj (.text:is_bin_door_open)
+                  0000c292    0000000e     dbg_uart_uscia0.obj (.text:is_dbg_uart_rx_data_ready)
+                  0000c2a0    0000000e     main.obj (.text:is_entry_door_open)
+                  0000c2ae    0000000e     main.obj (.text:is_step_switch_pressed)
+                  0000c2bc    0000000c     main.obj (.text:_isr:TimerA1)
+                  0000c2c8    00000008     utils.obj (.text:led_P5_6_off)
+                  0000c2d0    00000008     utils.obj (.text:led_P5_6_on)
+                  0000c2d8    00000008     utils.obj (.text:led_P7_7_off)
+                  0000c2e0    00000008     utils.obj (.text:led_P7_7_on)
+                  0000c2e8    00000006     rts430x_lc_sd_eabi.lib : isr_trap.obj (.text:_isr:__TI_ISR_TRAP)
+                  0000c2ee    00000006     dbg_uart_uscia0.obj (.text:disable_dbg_uart_txint)
+                  0000c2f4    00000006     dbg_uart_uscia0.obj (.text:enable_dbg_uart_txint)
+                  0000c2fa    00000006     i2c_uscib1.obj (.text:is_I2C_rx_ready)
+                  0000c300    00000006     ldc_spi_uscib0.obj (.text:is_LDC_spi_rx_ready)
+                  0000c306    00000006     utils.obj (.text:is_error)
+                  0000c30c    00000006     motor_spi_uscia1.obj (.text:is_motor_spi_rx_ready)
+                  0000c312    00000006     utils.obj (.text:led_P1_0_off)
+                  0000c318    00000006     utils.obj (.text:led_P1_0_on)
+                  0000c31e    00000006     utils.obj (.text:led_P2_2_off)
+                  0000c324    00000006     utils.obj (.text:led_P2_2_on)
+                  0000c32a    00000006     main.obj (.text:stepper_disable)
+                  0000c330    00000004     rts430x_lc_sd_eabi.lib : pre_init.obj (.text:_system_pre_init)
+                  0000c334    00000004                            : exit.obj (.text:abort)
 
-.const     0    0000c5c4    0000027c     
-                  0000c5c4    0000022a     main.obj (.const:.string)
-                  0000c7ee    00000050     main.obj (.const:.string:ui_buf)
-                  0000c83e    00000002     main.obj (.const:.string:$P$T0$1)
+.const     0    0000c338    0000027c     
+                  0000c338    0000022a     main.obj (.const:.string)
+                  0000c562    00000050     main.obj (.const:.string:ui_buf)
+                  0000c5b2    00000002     main.obj (.const:.string:$P$T0$1)
 
-.cinit     0    0000c840    00000048     
-                  0000c840    00000025     (.cinit..data.load) [load image, compression = rle]
-                  0000c865    00000001     --HOLE-- [fill = 0]
-                  0000c866    0000000c     (__TI_handler_table)
-                  0000c872    00000006     (.cinit..bss.load) [load image, compression = zero_init]
-                  0000c878    00000010     (__TI_cinit_table)
+.cinit     0    0000c5b4    00000048     
+                  0000c5b4    00000025     (.cinit..data.load) [load image, compression = rle]
+                  0000c5d9    00000001     --HOLE-- [fill = 0]
+                  0000c5da    0000000c     (__TI_handler_table)
+                  0000c5e6    00000006     (.cinit..bss.load) [load image, compression = zero_init]
+                  0000c5ec    00000010     (__TI_cinit_table)
 
 .init_array 
 *          0    00008000    00000000     UNINITIALIZED
@@ -350,14 +346,14 @@ SYSNMI     0    0000fffc    00000002
 
 LINKER GENERATED COPY TABLES
 
-__TI_cinit_table @ 0000c878 records: 2, size/record: 8, table size: 16
-	.data: load addr=0000c840, load size=00000025 bytes, run addr=00002400, run size=000004fa bytes, compression=rle
-	.bss: load addr=0000c872, load size=00000006 bytes, run addr=000028fa, run size=00000342 bytes, compression=zero_init
+__TI_cinit_table @ 0000c5ec records: 2, size/record: 8, table size: 16
+	.data: load addr=0000c5b4, load size=00000025 bytes, run addr=00002400, run size=000004fa bytes, compression=rle
+	.bss: load addr=0000c5e6, load size=00000006 bytes, run addr=000028fa, run size=00000342 bytes, compression=zero_init
 
 
 LINKER GENERATED HANDLER TABLE
 
-__TI_handler_table @ 0000c866 records: 3, size/record: 4, table size: 12
+__TI_handler_table @ 0000c5da records: 3, size/record: 4, table size: 12
 	index: 0, handler: __TI_zero_init
 	index: 1, handler: __TI_decompress_rle24
 	index: 2, handler: __TI_decompress_none
@@ -449,8 +445,8 @@ address   name
 00000732  ADC12MEM9                        
 00000733  ADC12MEM9_H                      
 00000732  ADC12MEM9_L                      
-0000ac74  ADC12_ISR                        
-0000c5c0  C$$EXIT                          
+0000aa62  ADC12_ISR                        
+0000c334  C$$EXIT                          
 000008c0  CBCTL0                           
 000008c1  CBCTL0_H                         
 000008c0  CBCTL0_L                         
@@ -539,7 +535,7 @@ address   name
 00000146  FCTL4_L                          
 000026af  I2C_data                         
 00002896  LDC_SPI_data                     
-0000bdc4  LDC_SPI_setup                    
+0000bb54  LDC_SPI_setup                    
 000004c4  MAC                              
 000004da  MAC32H                           
 000004db  MAC32H_H                         
@@ -559,7 +555,7 @@ address   name
 000004c5  MAC_H                            
 000004c4  MAC_L                            
 000028ac  MOTOR_SPI_data                   
-0000bba0  MOTOR_SPI_setup                  
+0000b930  MOTOR_SPI_setup                  
 000004c0  MPY                              
 000004ec  MPY32CTL0                        
 000004ed  MPY32CTL0_H                      
@@ -591,10 +587,10 @@ address   name
 000004c9  OP2_H                            
 000004c8  OP2_L                            
 0000020e  P1IV                             
-0000c1d6  P1_get                           
+0000bf66  P1_get                           
 0000021e  P2IV                             
-0000c1f8  P2_get                           
-0000c21a  P3_get                           
+0000bf88  P2_get                           
+0000bfaa  P3_get                           
 000001e0  P4MAP01                          
 000001e1  P4MAP01_H                        
 000001e0  P4MAP01_L                        
@@ -607,11 +603,11 @@ address   name
 000001e6  P4MAP67                          
 000001e7  P4MAP67_H                        
 000001e6  P4MAP67_L                        
-0000c23c  P4_get                           
-0000c25e  P5_get                           
-0000c280  P6_get                           
-0000c2a2  P7_get                           
-0000c2c4  P8_get                           
+0000bfcc  P4_get                           
+0000bfee  P5_get                           
+0000c010  P6_get                           
+0000c032  P7_get                           
+0000c054  P8_get                           
 00000204  PADIR                            
 00000205  PADIR_H                          
 00000204  PADIR_L                          
@@ -893,8 +889,8 @@ address   name
 000003e0  TB0EX0                           
 000003ee  TB0IV                            
 000003d0  TB0R                             
-0000c090  TimerA0                          
-0000c53e  TimerA1                          
+0000be20  TimerA0                          
+0000c2bc  TimerA1                          
 000005d0  UCA0ABCTL                        
 000005c6  UCA0BRW                          
 000005c7  UCA0BRW_H                        
@@ -1130,24 +1126,24 @@ address   name
 00000932  USBVECINT                        
 00000933  USBVECINT_H                      
 00000932  USBVECINT_L                      
-0000b616  USCIA0_ISR                       
-0000b148  USCIA1_ISR                       
-0000b1de  USCIB0_ISR                       
-0000b778  USCI_B1_ISR                      
+0000b404  USCIA0_ISR                       
+0000af36  USCIA1_ISR                       
+0000afcc  USCIB0_ISR                       
+0000b566  USCI_B1_ISR                      
 0000015c  WDTCTL                           
 0000015d  WDTCTL_H                         
 0000015c  WDTCTL_L                         
 00003c00  __STACK_END                      
 000000a0  __STACK_SIZE                     
-0000c878  __TI_CINIT_Base                  
-0000c888  __TI_CINIT_Limit                 
-0000c866  __TI_Handler_Table_Base          
-0000c872  __TI_Handler_Table_Limit         
+0000c5ec  __TI_CINIT_Base                  
+0000c5fc  __TI_CINIT_Limit                 
+0000c5da  __TI_Handler_Table_Base          
+0000c5e6  __TI_Handler_Table_Limit         
 UNDEFED   __TI_INITARRAY_Base              
 UNDEFED   __TI_INITARRAY_Limit             
-0000c574  __TI_ISR_TRAP                    
-0000bf88  __TI_decompress_none             
-0000c4f8  __TI_decompress_rle24            
+0000c2e8  __TI_ISR_TRAP                    
+0000bd18  __TI_decompress_none             
+0000c276  __TI_decompress_rle24            
 0000ffd2  __TI_int41                       
 0000ffd4  __TI_int42                       
 0000ffd6  __TI_int43                       
@@ -1170,21 +1166,21 @@ UNDEFED   __TI_INITARRAY_Limit
 0000fff8  __TI_int60                       
 0000fffa  __TI_int61                       
 0000fffc  __TI_int62                       
-0000bed0  __TI_zero_init                   
+0000bc60  __TI_zero_init                   
 ffffffff  __binit__                        
 ffffffff  __c_args__                       
-0000be50  __memcpy_far                     
-0000c114  __mspabi_divi                    
-0000c3e4  __mspabi_divu                    
-0000c3fa  __mspabi_mpyi_f5hw               
-0000c114  __mspabi_remi                    
-0000c3e4  __mspabi_remu                    
-0000b496  _auto_init_hold_wdt              
-0000c380  _c_int00_noargs_noexit           
+0000bbe0  __memcpy_far                     
+0000bea4  __mspabi_divi                    
+0000c174  __mspabi_divu                    
+0000c18a  __mspabi_mpyi_f5hw               
+0000bea4  __mspabi_remi                    
+0000c174  __mspabi_remu                    
+0000b284  _auto_init_hold_wdt              
+0000c110  _c_int00_noargs_noexit           
 0000fffe  _reset_vector                    
 00003b60  _stack                           
-0000c5bc  _system_pre_init                 
-0000c5c0  abort                            
+0000c330  _system_pre_init                 
+0000c334  abort                            
 00002674  accCurrState                     
 00002600  adc12_int_done_flag              
 000025fe  adc_current_state                
@@ -1193,85 +1189,82 @@ ffffffff  __c_args__
 00002766  adc_internal_buffer              
 000027bc  adc_output_buffer                
 00002602  adc_seq2                         
-0000c0bc  adc_setup                        
-0000a4c4  adc_task                         
-0000b414  ascii2hex_byte                   
+0000be4c  adc_setup                        
+0000a2b2  adc_task                         
+0000b202  ascii2hex_byte                   
 00002670  binCurr                          
 00002672  binCurrState                     
 0000268c  binFullCurrState                 
-0000c364  bin_full_setup                   
+0000c0f4  bin_full_setup                   
 00002678  bin_int_request                  
 0000261f  bin_motor_enable                 
 0000267c  bin_ready                        
 00002676  bin_request                      
 00002682  bin_run                          
-00009ac2  bin_task                         
+00009aa2  bin_task                         
 ffffffff  binit                            
-0000bc92  check_bin_nearest_pos            
-0000b516  check_bin_pos                    
-0000b596  check_bin_request_pos            
-0000a80a  check_bin_request_pos_compensated
-0000aeae  check_bin_resp                   
-0000b8b6  check_chim_full_rot              
-0000b302  check_chim_next_pos              
-0000b7e8  check_chim_paddle_pos            
-0000af56  check_chimney_resp               
-0000b9de  check_compact_pos                
-0000affe  check_compact_resp               
-0000c44c  check_compact_timeout            
+0000ba22  check_bin_nearest_pos            
+0000b304  check_bin_pos                    
+0000b384  check_bin_request_pos            
+0000a5f8  check_bin_request_pos_compensated
+0000ac9c  check_bin_resp                   
+0000b6a4  check_chim_full_rot              
+0000b0f0  check_chim_next_pos              
+0000b5d6  check_chim_paddle_pos            
+0000ad44  check_chimney_resp               
+0000adec  check_compact_resp               
 00002668  chimneyCurrState                 
 0000261e  chimney_motor_enable             
-0000980a  chimney_task                     
-0000bfc4  clear_errors                     
-0000bf4c  clear_warnings                   
+000097ea  chimney_task                     
+0000bd54  clear_errors                     
+0000bcdc  clear_warnings                   
 0000266e  compactCurrState                 
 0000266c  compact_done                     
 00002620  compact_motor_enable             
 0000266b  compact_ok                       
-0000c39a  compact_setup                    
-0000a142  compact_task                     
-0000c3b4  dbg_uart_get_byte                
-0000c0e8  dbg_uart_send_byte               
-0000be0c  dbg_uart_send_string             
+0000c12a  compact_setup                    
+0000c144  dbg_uart_get_byte                
+0000be78  dbg_uart_send_byte               
+0000bb9c  dbg_uart_send_string             
 00002c1a  debug_cmd_buf                    
 000025f8  debug_cmd_buf_ptr                
 00008000  debug_task                       
-0000bce0  dec2ascii_byte                   
-0000c57a  disable_dbg_uart_txint           
+0000ba70  dec2ascii_byte                   
+0000c2ee  disable_dbg_uart_txint           
 00002690  distance                         
-0000c580  enable_dbg_uart_txint            
-0000c45e  end_I2C_transac                  
-0000c470  end_LDC_SPI_transac              
+0000c2f4  enable_dbg_uart_txint            
+0000c1dc  end_I2C_transac                  
+0000c1ee  end_LDC_SPI_transac              
 000025fc  err_flag                         
 000028c2  err_log                          
 000025fb  err_log_ptr                      
-0000a8f8  error_dump                       
-0000c034  get_LDC_SPI_rx_data              
-0000b0a6  get_bin_motor_dir                
-0000c482  get_curr_bin_pos                 
-0000c494  get_curr_chimney_pos             
-0000c4a6  get_curr_compact_pos             
-0000c2e6  get_motor_SPI_rx_data            
-0000bb4a  hex2ascii_byte                   
-0000ad46  hex2ascii_int                    
+0000a6e6  error_dump                       
+0000bdc4  get_LDC_SPI_rx_data              
+0000ae94  get_bin_motor_dir                
+0000c200  get_curr_bin_pos                 
+0000c212  get_curr_chimney_pos             
+0000c224  get_curr_compact_pos             
+0000c076  get_motor_SPI_rx_data            
+0000b8da  hex2ascii_byte                   
+0000ab34  hex2ascii_int                    
 00002612  hist_delta_bin                   
 00002622  i2cCurrState                     
-00009f3c  i2c_task                         
-0000be90  i2c_uscib1_setup                 
-0000bf0e  init_I2C_transac                 
-0000ba98  init_LDC_SPI_transac             
-0000baf2  init_motor_SPI_transac           
-0000c586  is_I2C_rx_ready                  
-0000c58c  is_LDC_spi_rx_ready              
-0000c506  is_bin_door_open                 
-0000c514  is_dbg_uart_rx_data_ready        
-0000c522  is_entry_door_open               
-0000c592  is_error                         
-0000c306  is_inside_interval               
-0000c598  is_motor_spi_rx_ready            
-0000c530  is_step_switch_pressed           
-0000c062  issue_error                      
-0000bffc  issue_warning                    
+00009d02  i2c_task                         
+0000bc20  i2c_uscib1_setup                 
+0000bc9e  init_I2C_transac                 
+0000b828  init_LDC_SPI_transac             
+0000b882  init_motor_SPI_transac           
+0000c2fa  is_I2C_rx_ready                  
+0000c300  is_LDC_spi_rx_ready              
+0000c284  is_bin_door_open                 
+0000c292  is_dbg_uart_rx_data_ready        
+0000c2a0  is_entry_door_open               
+0000c306  is_error                         
+0000c096  is_inside_interval               
+0000c30c  is_motor_spi_rx_ready            
+0000c2ae  is_step_switch_pressed           
+0000bdf2  issue_error                      
+0000bd8c  issue_warning                    
 00002666  last_insert_pos                  
 0000266a  last_paddle                      
 00002604  ldc_current_state                
@@ -1279,37 +1272,37 @@ ffffffff  binit
 00002606  ldc_data_buf_ptr                 
 0000260a  ldc_final_val                    
 00002607  ldc_run                          
-0000b850  ldc_sensor_data_check_inside     
-0000b270  ldc_sensor_data_check_outside    
-0000a5fe  ldc_setup                        
+0000b63e  ldc_sensor_data_check_inside     
+0000b05e  ldc_sensor_data_check_outside    
+0000a3ec  ldc_setup                        
 00002608  ldc_stop                         
-00009462  ldc_task                         
-0000b706  ldc_write_reg                    
-0000c59e  led_P1_0_off                     
-0000c5a4  led_P1_0_on                      
-0000c5aa  led_P2_2_off                     
-0000c5b0  led_P2_2_on                      
-0000c554  led_P5_6_off                     
-0000c55c  led_P5_6_on                      
-0000c564  led_P7_7_off                     
-0000c56c  led_P7_7_on                      
-0000c3ce  led_setup                        
-0000c168  led_task                         
-0000adfe  main                             
+0000945a  ldc_task                         
+0000b4f4  ldc_write_reg                    
+0000c312  led_P1_0_off                     
+0000c318  led_P1_0_on                      
+0000c31e  led_P2_2_off                     
+0000c324  led_P2_2_on                      
+0000c2c8  led_P5_6_off                     
+0000c2d0  led_P5_6_on                      
+0000c2d8  led_P7_7_off                     
+0000c2e0  led_P7_7_on                      
+0000c15e  led_setup                        
+0000bef8  led_task                         
+0000abec  main                             
 00002610  mass_buf_ptr                     
 0000260c  mass_current_state               
 000028fa  mass_data_buf                    
 0000260f  mass_end                         
 00002812  mass_hist_buf                    
 0000260e  mass_run                         
-0000b91a  mass_sensor_data_check_inside    
-0000b68e  mass_sensor_data_check_outside   
+0000b708  mass_sensor_data_check_inside    
+0000b47c  mass_sensor_data_check_outside   
 00008f7a  mass_task                        
-0000c410  memset                           
+0000c1a0  memset                           
 00002624  motorCurrState                   
-0000bd2c  motor_enable_setup               
-0000bbf4  motor_pwm_setup                  
-0000a71a  motor_spi_task                   
+0000babc  motor_enable_setup               
+0000b984  motor_pwm_setup                  
+0000a508  motor_spi_task                   
 00002618  opt_buf_ptr                      
 00002614  opt_current_state                
 000028d6  opt_data_low_buf                 
@@ -1318,23 +1311,22 @@ ffffffff  binit
 0000261a  opt_low_val                      
 0000261c  opt_max_time                     
 00002616  opt_run                          
-0000b97c  opt_sensor_data_check_inside     
-0000b390  opt_sensor_data_check_outside    
-00009d22  opt_task                         
+0000b76a  opt_sensor_data_check_inside     
+0000b17e  opt_sensor_data_check_outside    
+00009f08  opt_task                         
 0000267a  prev_bin_int_request             
-0000c54a  reset_compact_timer              
-0000a9da  reset_isr                        
+0000a7c8  reset_isr                        
 00002626  sensor_data1                     
 00002638  sensor_data2                     
 0000264a  sensor_data3                     
-0000c424  set_bin_direction                
-0000c4b8  set_bin_speed                    
-0000c4c8  set_chimney_direction            
-0000c4d8  set_chimney_speed                
-0000c438  set_compact_direction            
-0000c4e8  set_compact_speed                
-0000bd78  setup_clock                      
-0000c140  setup_dbg_uart                   
+0000c1b4  set_bin_direction                
+0000c236  set_bin_speed                    
+0000c246  set_chimney_direction            
+0000c256  set_chimney_speed                
+0000c1c8  set_compact_direction            
+0000c266  set_compact_speed                
+0000bb08  setup_clock                      
+0000bed0  setup_dbg_uart                   
 00002621  sort_motor_enable                
 0000267e  start_bin_pos                    
 0000268a  stepCurrState                    
@@ -1343,23 +1335,23 @@ ffffffff  binit
 00002684  step_position                    
 00002687  step_request                     
 00002683  step_switch                      
-0000a31c  step_task                        
-0000c5b6  stepper_disable                  
-0000c326  stepper_enable                   
-0000c18e  stepper_setup                    
-0000c1b2  strncmp                          
+0000a10a  step_task                        
+0000c32a  stepper_disable                  
+0000c0b6  stepper_enable                   
+0000bf1e  stepper_setup                    
+0000bf42  strncmp                          
 0000265c  sysState                         
-0000c346  sys_task                         
+0000c0d6  sys_task                         
 0000265e  total_count                      
 00002680  total_distance                   
-0000c7ee  ui_buf                           
-0000ba3c  unmi_isr                         
+0000c562  ui_buf                           
+0000b7cc  unmi_isr                         
 0000268e  us_request                       
 00002692  us_timer_done                    
 000025fa  warn_flag                        
 0000287e  warn_log                         
 000025f9  warn_log_ptr                     
-0000aabc  warning_dump                     
+0000a8aa  warning_dump                     
 
 
 GLOBAL SYMBOLS: SORTED BY Symbol Address 
@@ -2196,141 +2188,137 @@ address   name
 00003c00  __STACK_END                      
 00008000  debug_task                       
 00008f7a  mass_task                        
-00009462  ldc_task                         
-0000980a  chimney_task                     
-00009ac2  bin_task                         
-00009d22  opt_task                         
-00009f3c  i2c_task                         
-0000a142  compact_task                     
-0000a31c  step_task                        
-0000a4c4  adc_task                         
-0000a5fe  ldc_setup                        
-0000a71a  motor_spi_task                   
-0000a80a  check_bin_request_pos_compensated
-0000a8f8  error_dump                       
-0000a9da  reset_isr                        
-0000aabc  warning_dump                     
-0000ac74  ADC12_ISR                        
-0000ad46  hex2ascii_int                    
-0000adfe  main                             
-0000aeae  check_bin_resp                   
-0000af56  check_chimney_resp               
-0000affe  check_compact_resp               
-0000b0a6  get_bin_motor_dir                
-0000b148  USCIA1_ISR                       
-0000b1de  USCIB0_ISR                       
-0000b270  ldc_sensor_data_check_outside    
-0000b302  check_chim_next_pos              
-0000b390  opt_sensor_data_check_outside    
-0000b414  ascii2hex_byte                   
-0000b496  _auto_init_hold_wdt              
-0000b516  check_bin_pos                    
-0000b596  check_bin_request_pos            
-0000b616  USCIA0_ISR                       
-0000b68e  mass_sensor_data_check_outside   
-0000b706  ldc_write_reg                    
-0000b778  USCI_B1_ISR                      
-0000b7e8  check_chim_paddle_pos            
-0000b850  ldc_sensor_data_check_inside     
-0000b8b6  check_chim_full_rot              
-0000b91a  mass_sensor_data_check_inside    
-0000b97c  opt_sensor_data_check_inside     
-0000b9de  check_compact_pos                
-0000ba3c  unmi_isr                         
-0000ba98  init_LDC_SPI_transac             
-0000baf2  init_motor_SPI_transac           
-0000bb4a  hex2ascii_byte                   
-0000bba0  MOTOR_SPI_setup                  
-0000bbf4  motor_pwm_setup                  
-0000bc92  check_bin_nearest_pos            
-0000bce0  dec2ascii_byte                   
-0000bd2c  motor_enable_setup               
-0000bd78  setup_clock                      
-0000bdc4  LDC_SPI_setup                    
-0000be0c  dbg_uart_send_string             
-0000be50  __memcpy_far                     
-0000be90  i2c_uscib1_setup                 
-0000bed0  __TI_zero_init                   
-0000bf0e  init_I2C_transac                 
-0000bf4c  clear_warnings                   
-0000bf88  __TI_decompress_none             
-0000bfc4  clear_errors                     
-0000bffc  issue_warning                    
-0000c034  get_LDC_SPI_rx_data              
-0000c062  issue_error                      
-0000c090  TimerA0                          
-0000c0bc  adc_setup                        
-0000c0e8  dbg_uart_send_byte               
-0000c114  __mspabi_divi                    
-0000c114  __mspabi_remi                    
-0000c140  setup_dbg_uart                   
-0000c168  led_task                         
-0000c18e  stepper_setup                    
-0000c1b2  strncmp                          
-0000c1d6  P1_get                           
-0000c1f8  P2_get                           
-0000c21a  P3_get                           
-0000c23c  P4_get                           
-0000c25e  P5_get                           
-0000c280  P6_get                           
-0000c2a2  P7_get                           
-0000c2c4  P8_get                           
-0000c2e6  get_motor_SPI_rx_data            
-0000c306  is_inside_interval               
-0000c326  stepper_enable                   
-0000c346  sys_task                         
-0000c364  bin_full_setup                   
-0000c380  _c_int00_noargs_noexit           
-0000c39a  compact_setup                    
-0000c3b4  dbg_uart_get_byte                
-0000c3ce  led_setup                        
-0000c3e4  __mspabi_divu                    
-0000c3e4  __mspabi_remu                    
-0000c3fa  __mspabi_mpyi_f5hw               
-0000c410  memset                           
-0000c424  set_bin_direction                
-0000c438  set_compact_direction            
-0000c44c  check_compact_timeout            
-0000c45e  end_I2C_transac                  
-0000c470  end_LDC_SPI_transac              
-0000c482  get_curr_bin_pos                 
-0000c494  get_curr_chimney_pos             
-0000c4a6  get_curr_compact_pos             
-0000c4b8  set_bin_speed                    
-0000c4c8  set_chimney_direction            
-0000c4d8  set_chimney_speed                
-0000c4e8  set_compact_speed                
-0000c4f8  __TI_decompress_rle24            
-0000c506  is_bin_door_open                 
-0000c514  is_dbg_uart_rx_data_ready        
-0000c522  is_entry_door_open               
-0000c530  is_step_switch_pressed           
-0000c53e  TimerA1                          
-0000c54a  reset_compact_timer              
-0000c554  led_P5_6_off                     
-0000c55c  led_P5_6_on                      
-0000c564  led_P7_7_off                     
-0000c56c  led_P7_7_on                      
-0000c574  __TI_ISR_TRAP                    
-0000c57a  disable_dbg_uart_txint           
-0000c580  enable_dbg_uart_txint            
-0000c586  is_I2C_rx_ready                  
-0000c58c  is_LDC_spi_rx_ready              
-0000c592  is_error                         
-0000c598  is_motor_spi_rx_ready            
-0000c59e  led_P1_0_off                     
-0000c5a4  led_P1_0_on                      
-0000c5aa  led_P2_2_off                     
-0000c5b0  led_P2_2_on                      
-0000c5b6  stepper_disable                  
-0000c5bc  _system_pre_init                 
-0000c5c0  C$$EXIT                          
-0000c5c0  abort                            
-0000c7ee  ui_buf                           
-0000c866  __TI_Handler_Table_Base          
-0000c872  __TI_Handler_Table_Limit         
-0000c878  __TI_CINIT_Base                  
-0000c888  __TI_CINIT_Limit                 
+0000945a  ldc_task                         
+000097ea  chimney_task                     
+00009aa2  bin_task                         
+00009d02  i2c_task                         
+00009f08  opt_task                         
+0000a10a  step_task                        
+0000a2b2  adc_task                         
+0000a3ec  ldc_setup                        
+0000a508  motor_spi_task                   
+0000a5f8  check_bin_request_pos_compensated
+0000a6e6  error_dump                       
+0000a7c8  reset_isr                        
+0000a8aa  warning_dump                     
+0000aa62  ADC12_ISR                        
+0000ab34  hex2ascii_int                    
+0000abec  main                             
+0000ac9c  check_bin_resp                   
+0000ad44  check_chimney_resp               
+0000adec  check_compact_resp               
+0000ae94  get_bin_motor_dir                
+0000af36  USCIA1_ISR                       
+0000afcc  USCIB0_ISR                       
+0000b05e  ldc_sensor_data_check_outside    
+0000b0f0  check_chim_next_pos              
+0000b17e  opt_sensor_data_check_outside    
+0000b202  ascii2hex_byte                   
+0000b284  _auto_init_hold_wdt              
+0000b304  check_bin_pos                    
+0000b384  check_bin_request_pos            
+0000b404  USCIA0_ISR                       
+0000b47c  mass_sensor_data_check_outside   
+0000b4f4  ldc_write_reg                    
+0000b566  USCI_B1_ISR                      
+0000b5d6  check_chim_paddle_pos            
+0000b63e  ldc_sensor_data_check_inside     
+0000b6a4  check_chim_full_rot              
+0000b708  mass_sensor_data_check_inside    
+0000b76a  opt_sensor_data_check_inside     
+0000b7cc  unmi_isr                         
+0000b828  init_LDC_SPI_transac             
+0000b882  init_motor_SPI_transac           
+0000b8da  hex2ascii_byte                   
+0000b930  MOTOR_SPI_setup                  
+0000b984  motor_pwm_setup                  
+0000ba22  check_bin_nearest_pos            
+0000ba70  dec2ascii_byte                   
+0000babc  motor_enable_setup               
+0000bb08  setup_clock                      
+0000bb54  LDC_SPI_setup                    
+0000bb9c  dbg_uart_send_string             
+0000bbe0  __memcpy_far                     
+0000bc20  i2c_uscib1_setup                 
+0000bc60  __TI_zero_init                   
+0000bc9e  init_I2C_transac                 
+0000bcdc  clear_warnings                   
+0000bd18  __TI_decompress_none             
+0000bd54  clear_errors                     
+0000bd8c  issue_warning                    
+0000bdc4  get_LDC_SPI_rx_data              
+0000bdf2  issue_error                      
+0000be20  TimerA0                          
+0000be4c  adc_setup                        
+0000be78  dbg_uart_send_byte               
+0000bea4  __mspabi_divi                    
+0000bea4  __mspabi_remi                    
+0000bed0  setup_dbg_uart                   
+0000bef8  led_task                         
+0000bf1e  stepper_setup                    
+0000bf42  strncmp                          
+0000bf66  P1_get                           
+0000bf88  P2_get                           
+0000bfaa  P3_get                           
+0000bfcc  P4_get                           
+0000bfee  P5_get                           
+0000c010  P6_get                           
+0000c032  P7_get                           
+0000c054  P8_get                           
+0000c076  get_motor_SPI_rx_data            
+0000c096  is_inside_interval               
+0000c0b6  stepper_enable                   
+0000c0d6  sys_task                         
+0000c0f4  bin_full_setup                   
+0000c110  _c_int00_noargs_noexit           
+0000c12a  compact_setup                    
+0000c144  dbg_uart_get_byte                
+0000c15e  led_setup                        
+0000c174  __mspabi_divu                    
+0000c174  __mspabi_remu                    
+0000c18a  __mspabi_mpyi_f5hw               
+0000c1a0  memset                           
+0000c1b4  set_bin_direction                
+0000c1c8  set_compact_direction            
+0000c1dc  end_I2C_transac                  
+0000c1ee  end_LDC_SPI_transac              
+0000c200  get_curr_bin_pos                 
+0000c212  get_curr_chimney_pos             
+0000c224  get_curr_compact_pos             
+0000c236  set_bin_speed                    
+0000c246  set_chimney_direction            
+0000c256  set_chimney_speed                
+0000c266  set_compact_speed                
+0000c276  __TI_decompress_rle24            
+0000c284  is_bin_door_open                 
+0000c292  is_dbg_uart_rx_data_ready        
+0000c2a0  is_entry_door_open               
+0000c2ae  is_step_switch_pressed           
+0000c2bc  TimerA1                          
+0000c2c8  led_P5_6_off                     
+0000c2d0  led_P5_6_on                      
+0000c2d8  led_P7_7_off                     
+0000c2e0  led_P7_7_on                      
+0000c2e8  __TI_ISR_TRAP                    
+0000c2ee  disable_dbg_uart_txint           
+0000c2f4  enable_dbg_uart_txint            
+0000c2fa  is_I2C_rx_ready                  
+0000c300  is_LDC_spi_rx_ready              
+0000c306  is_error                         
+0000c30c  is_motor_spi_rx_ready            
+0000c312  led_P1_0_off                     
+0000c318  led_P1_0_on                      
+0000c31e  led_P2_2_off                     
+0000c324  led_P2_2_on                      
+0000c32a  stepper_disable                  
+0000c330  _system_pre_init                 
+0000c334  C$$EXIT                          
+0000c334  abort                            
+0000c562  ui_buf                           
+0000c5da  __TI_Handler_Table_Base          
+0000c5e6  __TI_Handler_Table_Limit         
+0000c5ec  __TI_CINIT_Base                  
+0000c5fc  __TI_CINIT_Limit                 
 0000ffd2  __TI_int41                       
 0000ffd4  __TI_int42                       
 0000ffd6  __TI_int43                       
@@ -2360,4 +2348,4 @@ ffffffff  binit
 UNDEFED   __TI_INITARRAY_Base              
 UNDEFED   __TI_INITARRAY_Limit             
 
-[993 symbols]
+[989 symbols]

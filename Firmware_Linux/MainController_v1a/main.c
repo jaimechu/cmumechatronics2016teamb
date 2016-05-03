@@ -397,7 +397,7 @@ volatile uint8_t last_paddle = 0;
 /* END Chimney Functional task globals */
 
 /* Compact Functional task globals */
-//#define NO_COMPACT
+#define NO_COMPACT
 
 #define COMPACT_SPEED 0x910u // Max Speed
 #define COMPACT_OPEN_H 0x4C00u
@@ -973,7 +973,7 @@ void ldc_task(void){
 		max_min_diff = ldc_max_val - ldc_min_val;
 #ifdef RAW_DATA_PRINT
 
-		dbg_uart_send_byte('L');
+		//dbg_uart_send_byte('L');
 		dbg_uart_send_byte(9);//TAB
 		hex2ascii_int(ldc_max_val, &buf[0], &buf[1], &buf[2], &buf[3]);	//LDC_MAX_VAL
 		buf[4] = 9;//TAB
@@ -986,13 +986,13 @@ void ldc_task(void){
 		hex2ascii_int(base_ldc_val, &buf[0], &buf[1], &buf[2], &buf[3]);	//LDC_BASE_VAL
 		response_size = 4;
 		dbg_uart_send_string(buf,response_size);
-		dbg_uart_send_byte(10);
-		dbg_uart_send_byte(13);
+		//dbg_uart_send_byte(10);
+		//dbg_uart_send_byte(13);
 
 #endif
 		if(ldc_fail){
 			ldc_result = NOT_METAL;
-		} else	if(max_min_diff > CT_LDC_METAL_DIFF){
+		} else	if(max_min_diff >= CT_LDC_METAL_DIFF){
 			ldc_result = METAL;
 		} else {
 			ldc_result = NOT_METAL;
@@ -1247,7 +1247,7 @@ void mass_task(void){
 			hist_delta_bin = mass_hist_bin2 - mass_hist_bin1;
 		}
 #ifdef RAW_DATA_PRINT
-		dbg_uart_send_byte('m');
+		//dbg_uart_send_byte('m');
 		dbg_uart_send_byte(9);//TAB
 		hex2ascii_int(hist_delta_bin, &buf[0], &buf[1], &buf[2], &buf[3]);
 		response_size = 4;
@@ -1368,46 +1368,6 @@ void mass_task(void){
 		} else {
 			issue_warning(WARN_MASS_TASK_STOP_ILLEGAL_BUF2);
 		}
-
-		/*
-		if(ldc_final_val < LDC_METAL_H) {
-			dbg_uart_send_string("Metal",5);
-			dbg_uart_send_byte(13);		//CR
-			dbg_uart_send_byte(10);		//Line feed
-			total_count.metal++;
-			bin_int_request = BIN_METAL;
-		} else if(opt_max_time == 0 && hist_delta_bin == 0){
-			dbg_uart_send_string("Other",5);
-			dbg_uart_send_byte(13);		//CR
-			dbg_uart_send_byte(10);		//Line feed
-			total_count.other++;
-			bin_int_request = BIN_OTHER;
-		} else if(opt_max_time < 20 && hist_delta_bin >= 16) {
-			dbg_uart_send_string("Glass",5);
-			dbg_uart_send_byte(13);		//CR
-			dbg_uart_send_byte(10);		//Line feed
-			total_count.glass++;
-			bin_int_request = BIN_GLASS;
-		} else if (hist_delta_bin >= 16) {
-			dbg_uart_send_string("Glass",5);
-			dbg_uart_send_byte(13);		//CR
-			dbg_uart_send_byte(10);		//Line feed
-			total_count.glass++;
-			bin_int_request = BIN_GLASS;
-		} else if(opt_max_time < 20) {
-			dbg_uart_send_string("Plastic",7);
-			dbg_uart_send_byte(13);		//CR
-			dbg_uart_send_byte(10);		//Line feed
-			total_count.plastic++;
-			bin_int_request = BIN_PLASTIC;
-		} else{
-			dbg_uart_send_string("Other",5);
-			dbg_uart_send_byte(13);		//CR
-			dbg_uart_send_byte(10);		//Line feed
-			total_count.other++;
-			bin_int_request = BIN_OTHER;
-		}
-		*/
 
 		// Send flags
 		bin_request = 1;
@@ -1593,7 +1553,7 @@ void opt_task(void){
 		}
 #endif
 #ifdef RAW_DATA_PRINT
-		dbg_uart_send_byte('o');
+		//dbg_uart_send_byte('o');
 		dbg_uart_send_byte(9);//TAB
 		hex2ascii_int(opt_low_val, &buf[0], &buf[1], &buf[2], &buf[3]);
 		response_size = 4;
@@ -1602,8 +1562,8 @@ void opt_task(void){
 		hex2ascii_int(opt_max_time, &buf[0], &buf[1], &buf[2], &buf[3]);
 		response_size = 4;
 		dbg_uart_send_string(buf,response_size);
-		dbg_uart_send_byte(10);
-		dbg_uart_send_byte(13);
+		//dbg_uart_send_byte(10);
+		//dbg_uart_send_byte(13);
 #endif
 
 		//State transistion
