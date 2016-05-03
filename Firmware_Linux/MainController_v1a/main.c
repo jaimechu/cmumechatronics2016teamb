@@ -397,7 +397,7 @@ volatile uint8_t last_paddle = 0;
 /* END Chimney Functional task globals */
 
 /* Compact Functional task globals */
-//#define NO_COMPACT
+#define NO_COMPACT
 
 #define COMPACT_SPEED 0x910u // Max Speed
 #define COMPACT_OPEN_H 0x4C00u
@@ -452,14 +452,14 @@ volatile compact_state_t compactCurrState = COMPACT_IDLE_OFF;
 #define OTHER_DUMP_AVG OTHER_DUMP_H// (OTHER_DUMP_H + OTHER_DUMP_L)/2
 
 
-#define GLASS_DOOR_L 0x4620u
-#define GLASS_DOOR_H 0x4820u
-#define PLASTIC_DOOR_L 0x7ED0u
-#define PLASTIC_DOOR_H 0x80D0u
-#define METAL_DOOR_L 0xDBB0u
-#define METAL_DOOR_H 0xDDB0u
-#define OTHER_DOOR_L 0x0B80u
-#define OTHER_DOOR_H 0x0D80u
+#define GLASS_DOOR_L 0x4A30u
+#define GLASS_DOOR_H 0x4C30u
+#define PLASTIC_DOOR_L 0x0CF0u
+#define PLASTIC_DOOR_H 0x0EF0u
+#define METAL_DOOR_L 0xD030u
+#define METAL_DOOR_H 0xD230u
+#define OTHER_DOOR_L 0x89A0u
+#define OTHER_DOOR_H 0x8BA0u
 
 #define GLASS_THRESH OTHER_DOOR_L
 #define PLASTIC_THRESH GLASS_DOOR_L
@@ -499,6 +499,7 @@ typedef enum  {BIN_IDLE_OFF,
 			   BIN_INC_INT,
 			   BIN_IDLE_ON,
 			   BIN_CHECK_POS,
+			   BIN_START_RUN_TO_DUMP,
 			   BIN_RUN_TO_DUMP,
 			   BIN_AT_POS} bin_state_t;
 volatile bin_state_t binCurrState = BIN_IDLE_OFF;
@@ -1191,7 +1192,11 @@ void mass_task(void){
 		break;
 	case MASS_GET:							//STATE 2.3
 		//State action
-		for(i=0;i<NUM_MASS_SENSORS;i++){
+		//for(i=0;i<NUM_MASS_SENSORS;i++){
+		//for(i=2;i<3;i++){	//Works well for glass only
+		//for(i=1; i<2;i++){	//Doesn't work: all 0000
+		//for(i=0; i<1; i++){	//Doesn't work: all 0000
+		for(i=3; i<4; i++){
 			mass_data_buf[i][mass_buf_ptr]= adc_output_buffer[19+i];
 			hist_index = adc_output_buffer[19+i] >> 5;
 			mass_hist_buf[hist_index]++;
@@ -2346,6 +2351,7 @@ uint8_t get_bin_motor_dir(bin_t bin_requested, bin_t bin_requested_old){
 		break;
 	}
 	return bin_dir;
+	//return MOT_CW;
 
 	/*
 	volatile uint16_t currBinPos = get_curr_bin_pos();
@@ -2408,7 +2414,7 @@ void bin_task(){
 	case BIN_FIND_NEAREST:
 		//State actions
 		bin_int = check_bin_nearest_pos();
-		set_bin_direction(0);
+		set_bin_direction(MOT_CW);
 		//State transitions
 		binCurrState = BIN_CHECK_POS_MAINT;
 		break;
@@ -2512,13 +2518,18 @@ void bin_task(){
 		} else if(check_bin_request_pos(bin_int_request)){
 			binCurrState = BIN_AT_POS;
 		} else {
-			binCurrState = BIN_RUN_TO_DUMP;
+			binCurrState = BIN_START_RUN_TO_DUMP;
 		}
+		break;
+	case BIN_START_RUN_TO_DUMP:
+		//State action
+		set_bin_direction(get_bin_motor_dir(bin_int_request, prev_bin_int_request));
+		//State transition
+		binCurrState = BIN_RUN_TO_DUMP;
 		break;
 	case BIN_RUN_TO_DUMP:
 		//State actions
 		set_bin_speed(BIN_SPEED_FAST);
-		set_bin_direction(get_bin_motor_dir(bin_int_request, prev_bin_int_request));
 		bin_motor_enable = 1;
 		bin_run = 1;
 		start_bin_pos = get_curr_bin_pos();
@@ -2763,7 +2774,7 @@ void compact_setup(void){
 	UCSCTL5 |= DIVA_5;
 	TA2CTL = TASSEL_1 + ID_3 + MC_1; //SMCLK div 8 Up mode
 	TA2EX0 = TAIDEX_7; // Divide by 8
-	TA2CCR0 = 24000;// 12207;	//1 sec
+	TA2CCR0 = 30000;// 12207;	//1 sec
 	return;
 }
 
