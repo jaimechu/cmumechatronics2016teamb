@@ -397,7 +397,7 @@ volatile uint8_t last_paddle = 0;
 /* END Chimney Functional task globals */
 
 /* Compact Functional task globals */
-#define NO_COMPACT
+//#define NO_COMPACT
 
 #define COMPACT_SPEED 0x910u // Max Speed
 #define COMPACT_OPEN_H 0x4C00u
