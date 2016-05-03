@@ -524,6 +524,7 @@ uint16_t get_curr_bin_pos(void);
 uint8_t check_bin_pos(bin_t bin_requested);
 bin_t check_bin_nearest_pos(void);
 uint8_t check_bin_request_pos(bin_t bin_requested);
+uint8_t check_bin_request_pos_compensated(bin_t bin_requested, uint8_t motor_dir);
 uint8_t is_bin_door_open(void);
 uint16_t get_target_distance(uint16_t pos, bin_t bin_requested);
 uint8_t get_bin_motor_dir(bin_t bin_requested, bin_t bin_requested_old);
@@ -1865,7 +1866,7 @@ void motor_spi_task(void){
 }
 
 void check_chimney_resp(uint16_t resp){
-	if(resp & BIT0) issue_warning(WARN_OPEN_CHIMNEY_OL_OFF);
+	//if(resp & BIT0) issue_warning(WARN_OPEN_CHIMNEY_OL_OFF);
 	if(resp & BIT1) issue_warning(WARN_OPEN_CHIMNEY_OL_ON);
 	if(resp & BIT2) issue_warning(WARN_OPEN_CHIMNEY_VS_UV);
 	if(resp & BIT3) issue_warning(WARN_OPEN_CHIMNEY_VDD_OV);
@@ -1882,7 +1883,7 @@ void check_chimney_resp(uint16_t resp){
 
 
 void check_compact_resp(uint16_t resp){
-	if(resp & BIT0) issue_warning(WARN_OPEN_COMPACT_OL_OFF);
+	//if(resp & BIT0) issue_warning(WARN_OPEN_COMPACT_OL_OFF);
 	if(resp & BIT1) issue_warning(WARN_OPEN_COMPACT_OL_ON);
 	if(resp & BIT2) issue_warning(WARN_OPEN_COMPACT_VS_UV);
 	if(resp & BIT3) issue_warning(WARN_OPEN_COMPACT_VDD_OV);
@@ -1898,7 +1899,7 @@ void check_compact_resp(uint16_t resp){
 }
 
 void check_bin_resp(uint16_t resp){
-	if(resp & BIT0) issue_warning(WARN_OPEN_BIN_OL_OFF);
+	//if(resp & BIT0) issue_warning(WARN_OPEN_BIN_OL_OFF);
 	if(resp & BIT1) issue_warning(WARN_OPEN_BIN_OL_ON);
 	if(resp & BIT2) issue_warning(WARN_OPEN_BIN_VS_UV);
 	if(resp & BIT3) issue_warning(WARN_OPEN_BIN_VDD_OV);
@@ -2187,6 +2188,7 @@ uint16_t get_target_distance(uint16_t pos, bin_t bin_requested){
 	}
 	return distance;
 }
+
 //Check if bin is at requested location
 uint8_t check_bin_request_pos(bin_t bin_requested){
 	volatile uint16_t currBinPos = get_curr_bin_pos();
@@ -2214,6 +2216,65 @@ uint8_t check_bin_request_pos(bin_t bin_requested){
 		break;
 	default:
 		issue_warning(WARN_ILLEGAL_BIN_REQUEST_SM_STATE);
+	}
+	return ret_val;
+}
+
+#define COMP_OFFSET 0x1000
+//Check if bin is at requested location, takes in direction to account for backlash
+uint8_t check_bin_request_pos_compensated(bin_t bin_requested, uint8_t motor_dir){
+	volatile uint16_t currBinPos = get_curr_bin_pos();
+	uint8_t ret_val = 0;
+	if(motor_dir == MOT_CW){
+		switch(bin_requested){
+		case BIN_GLASS:
+			if(currBinPos < GLASS_DUMP_H && currBinPos >= GLASS_DUMP_L){
+				ret_val = 1;
+			}
+			break;
+		case BIN_PLASTIC:
+			if(currBinPos < PLASTIC_DUMP_H && currBinPos >= PLASTIC_DUMP_L){
+				ret_val = 1;
+			}
+			break;
+		case BIN_METAL:
+			if(currBinPos < METAL_DUMP_H && currBinPos >= METAL_DUMP_L){
+				ret_val = 1;
+			}
+			break;
+		case BIN_OTHER:
+			if(currBinPos < OTHER_DUMP_H && currBinPos >= OTHER_DUMP_L){
+				ret_val = 1;
+			}
+			break;
+		default:
+			issue_warning(WARN_ILLEGAL_BIN_REQUEST_SM_STATE);
+		}
+	} else {
+		switch(bin_requested){
+		case BIN_GLASS:
+			if(currBinPos < GLASS_DUMP_H + COMP_OFFSET && currBinPos >= GLASS_DUMP_L + COMP_OFFSET){
+				ret_val = 1;
+			}
+			break;
+		case BIN_PLASTIC:
+			if(currBinPos < PLASTIC_DUMP_H + COMP_OFFSET && currBinPos >= PLASTIC_DUMP_L+ COMP_OFFSET){
+				ret_val = 1;
+			}
+			break;
+		case BIN_METAL:
+			if(currBinPos < METAL_DUMP_H + COMP_OFFSET && currBinPos >= METAL_DUMP_L + COMP_OFFSET){
+				ret_val = 1;
+			}
+			break;
+		case BIN_OTHER:
+			if(currBinPos < OTHER_DUMP_H + COMP_OFFSET && currBinPos >= OTHER_DUMP_L+ COMP_OFFSET){
+				ret_val = 1;
+			}
+			break;
+		default:
+			issue_warning(WARN_ILLEGAL_BIN_REQUEST_SM_STATE2);
+		}
 	}
 	return ret_val;
 }
@@ -2397,6 +2458,7 @@ uint8_t get_bin_motor_dir(bin_t bin_requested, bin_t bin_requested_old){
 
 void bin_task(){
 	static bin_t bin_int = BIN_GLASS;
+	static volatile uint8_t bin_dir = MOT_CW;
 	volatile uint16_t currBinPos = 0;
 	switch(binCurrState){
 	case BIN_IDLE_OFF:
@@ -2523,7 +2585,8 @@ void bin_task(){
 		break;
 	case BIN_START_RUN_TO_DUMP:
 		//State action
-		set_bin_direction(get_bin_motor_dir(bin_int_request, prev_bin_int_request));
+		bin_dir = get_bin_motor_dir(bin_int_request, prev_bin_int_request);
+		set_bin_direction(bin_dir);
 		//State transition
 		binCurrState = BIN_RUN_TO_DUMP;
 		break;
@@ -2535,7 +2598,7 @@ void bin_task(){
 		start_bin_pos = get_curr_bin_pos();
 		//total_distance = get_target_distance(start_bin_pos, bin_int_request);
 		//State transistions
-		if(check_bin_request_pos(bin_int_request)){
+		if(check_bin_request_pos_compensated(bin_int_request, bin_dir)){
 			binCurrState = BIN_AT_POS;
 
 		} else {
