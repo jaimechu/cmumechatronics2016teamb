@@ -397,7 +397,7 @@ volatile uint8_t last_paddle = 0;
 /* END Chimney Functional task globals */
 
 /* Compact Functional task globals */
-#define NO_COMPACT
+//#define NO_COMPACT
 
 #define COMPACT_SPEED 0x910u // Max Speed
 #define COMPACT_OPEN_H 0x4C00u
@@ -431,6 +431,8 @@ typedef enum  {COMPACT_IDLE_OFF,
 			   COMPACT_AT_CLOSE,
 			   COMPACT_ERR} compact_state_t;
 volatile compact_state_t compactCurrState = COMPACT_IDLE_OFF;
+
+uint8_t ser_disable_compact = 0;
 
 /* END Compact Functional task globals */
 
@@ -1299,7 +1301,11 @@ void mass_task(void){
 				dbg_uart_send_byte(10);		//Line feed
 				total_count.metal++;
 				bin_int_request = BIN_METAL;
-				compact_ok =1;
+				if(ser_disable_compact){
+					compact_ok = 0;
+				} else {
+					compact_ok = 1;
+				}
 			} else if((sensor_data1.mass_result == HEAVY) && (sensor_data1.opt_result == TRANSPARENT)){ //Assumes NOT_METAL
 				dbg_uart_send_string("Glass",5);
 				dbg_uart_send_byte(13);		//CR
@@ -3575,6 +3581,34 @@ void debug_task(void){
 		} else if ((strncmp(debug_cmd_buf,"bot",3)==0) && (debug_cmd_buf_ptr == 3)) {
 			step_request = 1;
 			bin_request = 1;
+		} else if ((strncmp(debug_cmd_buf,"comp dis",8)==0) && (debug_cmd_buf_ptr == 8)) {
+			ser_disable_compact = 1;
+		} else if ((strncmp(debug_cmd_buf,"comp en",7)==0) && (debug_cmd_buf_ptr == 7)) {
+			ser_disable_compact = 0;
+		} else if ((strncmp(debug_cmd_buf,"comp stat",9)==0) && (debug_cmd_buf_ptr == 9)) {
+#ifdef NO_COMPACT
+			response_buf[0] = 'O';
+			response_buf[1] = 'F';
+			response_buf[2] = 'F';
+			response_buf[3] = ' ';
+			response_buf[4] = '#';
+			dbg_uart_send_string(response_buf,5);
+#else
+			if(ser_disable_compact){
+				response_buf[0] = 'O';
+				response_buf[1] = 'F';
+				response_buf[2] = 'F';
+				response_buf[3] = ' ';
+				response_buf[4] = 'C';
+				response_buf[5] = 'M';
+				response_buf[6] = 'D';
+				dbg_uart_send_string(response_buf,7);
+			} else {
+				response_buf[0] = 'O';
+				response_buf[1] = 'N';
+				dbg_uart_send_string(response_buf,2);
+			}
+#endif
 		} else {
 			dbg_uart_send_string("Invalid Command",15);
 		}
