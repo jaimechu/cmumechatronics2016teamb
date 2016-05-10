@@ -39,16 +39,13 @@
 
 
         <p class="view"><a href="https://github.com/jaimechu/cmumechatronics2016teamb">View the Project on GitHub <small>jaimechu/cmumechatronics2016teamb</small></a></p>
-        <ul>
-          <li><a href="https://github.com/jaimechu/cmumechatronics2016teamb/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/jaimechu/cmumechatronics2016teamb/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/jaimechu/cmumechatronics2016teamb">View On <strong>GitHub</strong></a></li>
-        </ul>
+       
 
       </header>
       <section>
 
-      <p>This page details our current progress thus far.<br> 
+      <p>
+      Overall, we had a total of <li>3772 lines of code,</li><li> 18KB of program data, </li> <li> 355 electronic parts, </li> <li> 298 signals, </li> <li> 989 solder joints, and </li> <li> 214 mechanical parts. </li><br><br>
 
     <h3>
 <a id="electrical" class="anchor" href="#electrical" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a> Electrical</h3>
@@ -72,11 +69,16 @@
           
         <br>
       <iframe src="https://drive.google.com/embeddedfolderview?id=0B82f2Ieu3zN3ZE9BRHlsQ000QjA#list" width="700" height="350" frameborder="0"></iframe>
+      <br>
+      Over the course of integrating our hardware with our code, we found a few bugs. The main concern was a race condition with our flags being set and cleared before each section read it. Since we had already written thousands of lines of code before we started the integration of the different tasks, more documentation of our design would have prevented some design issues. 
+      <a href="final_flags.png"><img src="final_flags.png" alt="flag" name="flag" style="border: 0px solid ;"></a> 
+
  <br> <br>
 
  <b> MISC </b><br>
  POWER | The system uses five power rails sourced from a 12V and a 24V AC-DC enclosed switching power supplies.  The 24V rail powers the compacting motor.  The 12V rail powers the chimney, bin, and sort motors, and is split into 3.3V, 5V, and 5.5V Analog rails for General logic power, 5V sensor interface power, and Encoder/Inductive sensor power.  Multiple rails mitigate problems associated with noisy motors or logic on the same power rail as analog circuits.  
  <br> <br> 
+ <a href="ui.jpg"><img src="ui.jpg" alt="ui" name="ui" style="border: 0px solid ;"></a> <br>
  UI | A detachable User Interface panel contains a mode switch, ESTOP switch, and status display.  The mode switch allows the user to configure the system for ON mode, where trash items are accepted, SERVICE mode, where bins can be removed and emptied, and OFF mode, which is a standby state where electronics are powered, but actuators are disabled in software.  The ESTOP switch can be used to disable actuators through hardware in case of a system malfunction.  It does not power off the system, however, so the user or technician can check error codes through a USB port.  The LCD screen shows the classification of trash input.  
 
 <br><br>
